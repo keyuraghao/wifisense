@@ -3,6 +3,9 @@
 Research scaffold for device-free sensing using the RF your existing WiFi router
 already transmits. No router modification, no extra transmitter.
 
+**Have ESP32 hardware in hand?** [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)
+- toolchain, flashing, placement, first run.
+
 **Start here:** [`docs/RESEARCH_PATHWAY.md`](docs/RESEARCH_PATHWAY.md) - the
 staged plan from "nothing" to "defensible result".
 Then [`docs/HARDWARE.md`](docs/HARDWARE.md) - what your radio can and cannot do.
@@ -148,6 +151,8 @@ scripts/
   rti_dashboard.py           live mesh dashboard + reconstruction
   rti_fake_nodes.py          virtual ESP32 mesh, with failure injection
   gen_mesh_key.py            generate the mesh master key (run once)
+  setup_firmware.py          generate firmware config.h (WiFi, server IP)
+  flash_node.sh              compile + flash one node, auto-detecting the chip
 
 firmware/
   esp32_rti_node/            one sketch, flashed unchanged to every node

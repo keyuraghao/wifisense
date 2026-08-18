@@ -28,48 +28,31 @@
 #include <WiFiUdp.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
+#include <esp_log.h>
 #include <Preferences.h>
 #include <mbedtls/gcm.h>
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
 
+#include "rti_types.h"  // types first: see the note in that file
+#include "config.h"     // copy from config.h.example, or setup_firmware.py
 #include "mesh_key.h"   // generated: scripts/gen_mesh_key.py
 
 // ---------------------------------------------------------------- config ---
-static const char *WIFI_SSID = "YOUR_SSID";
-static const char *WIFI_PASS = "YOUR_PASSWORD";
-static const char *SERVER_IP = "192.168.1.100";   // machine running the dashboard
-static const uint16_t SERVER_PORT = 9999;
+// Values come from config.h so the sketch itself carries no secrets.
+static const char *WIFI_SSID = CFG_WIFI_SSID;
+static const char *WIFI_PASS = CFG_WIFI_PASS;
+static const char *SERVER_IP = CFG_SERVER_IP;
+static const uint16_t SERVER_PORT = CFG_SERVER_PORT;
 
-static const uint32_t BEACON_INTERVAL_MS = 40;    // ~25 beacons/s per node
-static const uint32_t REPORT_INTERVAL_MS = 200;   // 5 reports/s to the server
-static const uint8_t  MAX_PEERS = 32;
-static const uint32_t PEER_STALE_MS = 3000;       // forget a silent peer
+static const uint32_t BEACON_INTERVAL_MS = CFG_BEACON_INTERVAL_MS;
+static const uint32_t REPORT_INTERVAL_MS = CFG_REPORT_INTERVAL_MS;
+static const uint32_t PEER_STALE_MS = CFG_PEER_STALE_MS;
 
-#define LED_PIN 2
+#define LED_PIN CFG_LED_PIN
 
 // ------------------------------------------------------------- security ---
-// Wire format is defined by wifisense/mesh/crypto.py. Header bytes are laid out
-// by hand rather than with a packed struct: struct padding differs between the
-// ESP32 toolchain and the server, and a silent layout mismatch would show up as
-// "authentication failed" with no clue why.
-//
-//   header (18 bytes, little endian):
-//     magic[2]="RT" | version=2 | flags | node_mac[6] | boot_id[4] | seq[4]
-//   report : header || AES-128-GCM(ciphertext) || tag[16]   AAD = header
-//   beacon : header(flags=1) || HMAC-SHA256(header)[0..7]
-//
-// Nonce is 4 zero bytes || boot_id || seq. Unique per key because boot_id is
-// persisted in NVS and incremented every boot. GCM nonce reuse is catastrophic,
-// so boot_id must never go backwards.
-static const uint8_t  SECURE_VERSION = 2;
-static const size_t   HEADER_LEN = 18;
-static const size_t   GCM_TAG_LEN = 16;
-static const size_t   BEACON_TAG_LEN = 8;
-static const size_t   NODE_KEY_LEN = 16;
-
-static const char *INFO_REPORT = "rti-mesh-report-v2";
-static const char *INFO_BEACON = "rti-mesh-beacon-v2";
+// Constants and the PeerStat type live in rti_types.h.
 
 static uint8_t selfReportKey[NODE_KEY_LEN];
 static uint8_t selfBeaconKey[NODE_KEY_LEN];
@@ -104,24 +87,6 @@ static void buildNonce(uint8_t *nonce, uint32_t boot, uint32_t seq) {
 }
 
 // ------------------------------------------------------------------ state ---
-// 18-byte header + 8-byte tag. Broadcast ESP-NOW cannot be encrypted, and the
-// beacon carries nothing secret anyway - authenticity is the whole requirement.
-static const size_t BEACON_LEN = HEADER_LEN + BEACON_TAG_LEN;
-
-struct PeerStat {
-  uint8_t  mac[6];
-  int32_t  rssi_sum;
-  uint16_t samples;
-  uint32_t last_ms;
-  bool     used;
-  uint8_t  beaconKey[NODE_KEY_LEN];  // derived once, on first sight
-  bool     keyReady;
-  uint32_t lastBoot;                 // per-peer replay state
-  uint32_t lastSeq;
-  bool     seenOnce;
-  uint32_t rejected;                 // failed auth or replay, for diagnostics
-};
-
 static PeerStat peers[MAX_PEERS];
 static WiFiUDP udp;
 static uint32_t beaconSeq = 0, reportSeq = 0;
@@ -270,21 +235,45 @@ static void sendReport() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_PIN, OUTPUT);
+  if (LED_PIN >= 0) pinMode(LED_PIN, OUTPUT);
+  esp_log_level_set("wifi", ESP_LOG_WARN);
+  esp_log_level_set("ESPNOW", ESP_LOG_WARN);
   memset(peers, 0, sizeof(peers));
 
   // AP_STA so ESP-NOW keeps working while the station interface is associated.
   WiFi.mode(WIFI_AP_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  Serial.print("connecting");
-  while (WiFi.status() != WL_CONNECTED) { delay(300); Serial.print("."); }
-  Serial.printf("\nip %s\n", WiFi.localIP().toString().c_str());
+  Serial.printf("connecting to %s", WIFI_SSID);
+  // Bounded, not infinite. A node that cannot reach the AP should still boot
+  // and still beacon: its peers keep measuring the links to it, and loop()
+  // retries the association. Blocking here would take the node out of the mesh
+  // entirely for a fault that only affects reporting.
+  uint32_t deadline = millis() + 20000;
+  while (WiFi.status() != WL_CONNECTED && millis() < deadline) {
+    delay(300); Serial.print(".");
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.printf("\nip %s  rssi %d dBm\n", WiFi.localIP().toString().c_str(),
+                  WiFi.RSSI());
+  } else {
+    Serial.println("\nWiFi TIMEOUT - will keep retrying. Until it associates "
+                   "this node cannot mesh: scanning hops channels, and ESP-NOW "
+                   "needs a shared channel.");
+  }
 
   // ESP-NOW must sit on the AP's channel or peers on other channels go deaf.
   uint8_t primary; wifi_second_chan_t second;
   esp_wifi_get_channel(&primary, &second);
-  esp_wifi_set_channel(primary, WIFI_SECOND_CHAN_NONE);
-  Serial.printf("channel %u\n", primary);
+  if (WiFi.status() != WL_CONNECTED) {
+    // Unassociated: park on a known channel so nodes can still hear each other.
+    primary = 1;
+    esp_wifi_set_channel(primary, WIFI_SECOND_CHAN_NONE);
+  }
+  // Associated: the AP owns the channel. Do NOT override it - and this is also
+  // what silently puts every node on the same channel, since they all join the
+  // same AP. That shared channel is a hard requirement for ESP-NOW.
+  Serial.printf("channel %u (%s)\n", primary,
+                WiFi.status() == WL_CONNECTED ? "from AP" : "fallback, not associated");
 
   uint8_t mac[6]; WiFi.macAddress(mac); macToHex(mac, selfId);
   Serial.printf("node id %s\n", selfId);
@@ -303,19 +292,32 @@ void setup() {
       !deriveKey(mac, INFO_BEACON, selfBeaconKey)) {
     Serial.println("key derivation failed"); ESP.restart();
   }
-  Serial.println("security: AES-128-GCM reports, HMAC-SHA256 beacons");
+  // Fingerprint, not the key: enough to confirm every node derived the same
+  // material, useless to anyone reading the serial log.
+  uint8_t fp[32];
+  const mbedtls_md_info_t *mdi = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  mbedtls_md(mdi, selfReportKey, NODE_KEY_LEN, fp);
+  Serial.printf("security: AES-128-GCM reports, HMAC-SHA256 beacons\n");
+  Serial.printf("key fingerprint %02x%02x%02x%02x (must match on every node)\n",
+                fp[0], fp[1], fp[2], fp[3]);
+  Serial.printf("reporting to %s:%u\n", SERVER_IP, SERVER_PORT);
+  Serial.println("--- running ---");
 
   if (esp_now_init() != ESP_OK) { Serial.println("esp_now_init failed"); ESP.restart(); }
   esp_now_register_recv_cb(onRecv);
 
   esp_now_peer_info_t bc = {};
   memcpy(bc.peer_addr, BROADCAST, 6);
-  bc.channel = primary;
+  // channel 0 means "whatever channel the interface is currently on". Pinning a
+  // number here breaks the moment the STA associates and the radio follows the
+  // AP: every send then fails with "Peer channel is not equal to the home
+  // channel". Channel 0 makes ESP-NOW track the interface instead.
+  bc.channel = 0;
+  bc.ifidx = WIFI_IF_STA;
   bc.encrypt = false;
   esp_now_add_peer(&bc);
 
   udp.begin(SERVER_PORT + 1);
-  Serial.printf("reporting to %s:%u\n", SERVER_IP, SERVER_PORT);
 }
 
 void loop() {
@@ -330,12 +332,35 @@ void loop() {
   if (now - lastReport >= REPORT_INTERVAL_MS) {
     lastReport = now;
     sendReport();
-    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+
+    static uint32_t lastLog = 0;
+    if (now - lastLog >= 5000) {
+      lastLog = now;
+      int live = 0, rej = 0;
+      for (int i = 0; i < MAX_PEERS; i++)
+        if (peers[i].used) { live++; rej += peers[i].rejected; }
+      uint8_t ch; wifi_second_chan_t sec;
+      esp_wifi_get_channel(&ch, &sec);
+      Serial.printf("[%6lus] peers %d  reports %lu  rejected %d  ch %u  wifi %s\n",
+                    (unsigned long)(now / 1000), live, (unsigned long)reportSeq,
+                    rej, ch, WiFi.status() == WL_CONNECTED ? "up" : "DOWN");
+    }
+    if (LED_PIN >= 0) digitalWrite(LED_PIN, !digitalRead(LED_PIN));
   }
 
-  // Rejoin if the AP drops; ESP-NOW keeps measuring throughout, so the node
-  // only stops contributing for as long as it cannot reach the server.
-  if (WiFi.status() != WL_CONNECTED) WiFi.reconnect();
+  // Rejoin if the AP drops. Note what actually happens while unassociated: the
+  // STA scans, which hops channels, and ESP-NOW only works between radios on
+  // the SAME channel. So a node that cannot reach the AP does not merely stop
+  // reporting - it drops out of the mesh until it re-associates. Association is
+  // what pins every node to one channel; there is no meshing without it.
+  // Rate limited: calling reconnect() every loop iteration floods the WiFi task
+  // with "sta is connecting, return error" and makes association slower, not
+  // faster.
+  static uint32_t lastReconnect = 0;
+  if (WiFi.status() != WL_CONNECTED && now - lastReconnect >= 5000) {
+    lastReconnect = now;
+    WiFi.reconnect();
+  }
 
   delay(1);
 }

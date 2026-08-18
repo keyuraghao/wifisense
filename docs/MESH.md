@@ -135,9 +135,14 @@ the full server + dashboard + virtual mesh loop, and the firmware's exact
 output bytes round-tripping through the real Python parser (compiled the report
 builder standalone and fed its output to `protocol.decode`).
 
-**Not verified:** the firmware has never been flashed to an ESP32. ESP-NOW
-behaviour at 12 nodes, real RSSI quality, and channel coexistence with the AP
-are all untested. Expect to spend time there.
+**Now verified on hardware:** the firmware compiles (883 KB, 67% of flash;
+49.5 KB RAM) and runs on an ESP32-S3 under arduino-esp32 3.3.11. Boot, key
+derivation, NVS-persisted boot_id, and the heartbeat are all confirmed. See
+`docs/GETTING_STARTED.md`.
+
+**Still unverified:** multi-node behaviour. ESP-NOW at 12 nodes, real RSSI
+quality, and reconstruction from live measurements are untested - that needs
+more than one board.
 
 Requires **arduino-esp32 core 3.x** (ESP-IDF 5.x): the RSSI-bearing ESP-NOW
 receive callback does not exist in core 2.x.

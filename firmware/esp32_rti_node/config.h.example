@@ -1,0 +1,28 @@
+// Copy to config.h and fill in. config.h is gitignored: it holds your WiFi
+// password.
+//
+//     cp config.h.example config.h
+//
+// Or generate it: .venv/bin/python scripts/setup_firmware.py --ssid ... --pass ...
+#pragma once
+
+// ---------------------------------------------------------------- network ---
+// ESP32 (classic, and S2/S3/C3) is 2.4 GHz ONLY. If your router advertises the
+// same SSID on both bands this still works - the node simply associates on
+// 2.4 GHz. But if 5 GHz has its own SSID, you must use the 2.4 GHz one here.
+#define CFG_WIFI_SSID   "YOUR_2G_SSID"
+#define CFG_WIFI_PASS   "YOUR_PASSWORD"
+
+// The machine running scripts/rti_dashboard.py. Give it a DHCP reservation on
+// your router, or this breaks the next time its lease changes.
+#define CFG_SERVER_IP   "192.168.1.100"
+#define CFG_SERVER_PORT 9999
+
+// ----------------------------------------------------------------- timing ---
+#define CFG_BEACON_INTERVAL_MS 40    // ~25 beacons/s per node
+#define CFG_REPORT_INTERVAL_MS 200   // 5 reports/s to the server
+#define CFG_PEER_STALE_MS      3000  // forget a peer after this silence
+
+// Onboard LED. 2 on most DevKitC boards; ESP32-S3 boards often use 48 with an
+// addressable LED, in which case set CFG_LED_PIN to -1 to disable.
+#define CFG_LED_PIN 2
