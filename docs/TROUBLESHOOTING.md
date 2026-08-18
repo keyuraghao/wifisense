@@ -39,7 +39,7 @@ sudo ip link set wlan0 up && sudo systemctl start NetworkManager
 ```
 
 This is the more reliable configuration overall, and a second device as the
-traffic source is better practice anyway — it fixes the link geometry instead of
+traffic source is better practice anyway - it fixes the link geometry instead of
 letting your own NIC be both illuminator and sensor.
 
 ## Capture rate is low (< 50 Hz)
@@ -49,14 +49,14 @@ letting your own NIC be both illuminator and sensor.
   (`iperf3 -c <router>` if the router runs a server, or a large HTTP download).
 - Check for DFS radar events forcing a channel change: `dmesg | grep -i dfs`.
   Move to a non-DFS channel (36-48 in the US) and disable auto-channel.
-- `plot_session.py` panel 4 shows frame rate over time — look for dropouts.
+- `plot_session.py` panel 4 shows frame rate over time - look for dropouts.
 
 ## Rate is fine but RSSI is flat / never varies
 
 - The link may be too strong. If the laptop is 1 m from the router the direct
   path dominates every reflected path and motion is invisible. Move to 3-8 m,
   ideally with the person able to pass between the two.
-- Check `iw dev wlan0 link` for a fixed high MCS — some drivers report a
+- Check `iw dev wlan0 link` for a fixed high MCS - some drivers report a
   smoothed RSSI. Per-frame radiotap values from monitor mode should be noisy;
   if yours are suspiciously constant, the driver may be reporting an EWMA.
 
@@ -64,7 +64,7 @@ letting your own NIC be both illuminator and sensor.
 
 Raw sockets need root. Either `sudo .venv/bin/python ...` or grant capabilities:
 `sudo setcap cap_net_raw,cap_net_admin+eip $(readlink -f .venv/bin/python)`
-(the setcap route affects every script that interpreter runs — prefer sudo).
+(the setcap route affects every script that interpreter runs - prefer sudo).
 
 ## Channel keeps changing mid-session
 
@@ -107,7 +107,7 @@ as you) exists precisely to avoid this.
 
 ## Everything reads MOTION, or nothing ever does
 
-You calibrated wrong. Calibration must happen with the space **empty and still** —
+You calibrated wrong. Calibration must happen with the space **empty and still** -
 if you were sitting at the laptop during it, the threshold is set above your own
 motion and nothing will ever trigger. Restart the viewer and leave the room for
 the calibration window.

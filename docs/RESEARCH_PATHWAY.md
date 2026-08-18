@@ -1,7 +1,7 @@
 # Research pathway: detecting objects with router RF
 
-The goal — "detect objects using the radio frequencies my router already emits"
-— is the field known as **WiFi sensing** / **device-free passive sensing**.
+The goal - "detect objects using the radio frequencies my router already emits"
+- is the field known as **WiFi sensing** / **device-free passive sensing**.
 This document is the staged plan from "nothing" to "defensible result", written
 against the hardware you actually own.
 
@@ -11,15 +11,15 @@ skip ahead: Phase 3 with no Phase 1 baseline is a result nobody can interpret.
 
 ---
 
-## Phase 0 — Frame the question (do this before writing more code)
+## Phase 0 - Frame the question (do this before writing more code)
 
 "Detect objects" is four different research problems wearing one coat. Pick one;
 they need different signals, different setups, and different evaluations.
 
 | Question | Difficulty | Minimum hardware |
 |---|---|---|
-| Is anyone in the room? (presence) | easy | RSSI — **you have this** |
-| Is something moving, and how much? (motion) | easy | RSSI — **you have this** |
+| Is anyone in the room? (presence) | easy | RSSI - **you have this** |
+| Is something moving, and how much? (motion) | easy | RSSI - **you have this** |
 | What activity is it? (walk / sit / wave) | moderate | CSI strongly preferred |
 | Is the person breathing, and how fast? | moderate–hard | CSI required |
 | Where is the person? (localisation) | hard | multi-antenna CSI, or many links |
@@ -38,7 +38,7 @@ much harder problem (Phase 4+, and largely an SDR/mmWave one).
 
 ---
 
-## Phase 1 — RSSI motion & presence sensing  ← **start here, works today**
+## Phase 1 - RSSI motion & presence sensing  ← **start here, works today**
 
 **Hardware:** the laptop's MT7921 in monitor mode + your router. Nothing to buy.
 
@@ -54,18 +54,18 @@ intersects, so `P(t)` fluctuates. Everything in Phase 1 is extracting structure
 from that fluctuation.
 
 **The rate constraint, which trips up everyone.** An idle AP beacons at
-~9.8 Hz (102.4 ms TBTT). Nyquist caps you at ~4.9 Hz of observable motion —
+~9.8 Hz (102.4 ms TBTT). Nyquist caps you at ~4.9 Hz of observable motion -
 below the ~10-30 Hz where limb motion lives. So you must generate traffic.
 `wifisense/capture/traffic.py` ping-floods the router to force a dense frame
 stream; aim for **>200 Hz** effective capture rate.
 
 **Steps**
 
-1. `python scripts/check_hw.py` — confirm monitor mode.
+1. `python scripts/check_hw.py` - confirm monitor mode.
 2. Fix the router to one channel; disable auto-channel and DFS.
 3. Record interleaved sessions (`scripts/collect.py`), ≥3 per class, ≥90 s each:
    `empty`, `sitting`, `walking`. **Interleave and repeat on a second day.**
-4. `python scripts/plot_session.py <session>` — look at every recording before
+4. `python scripts/plot_session.py <session>` - look at every recording before
    it enters a dataset. You will catch dropouts and channel changes here.
 5. `python scripts/build_dataset.py` then `python scripts/train.py`.
 
@@ -75,12 +75,12 @@ chance.
 
 **Expected honest outcome.** Presence and gross motion: strong (>90%). Fine
 activity: mediocre. A seated breathing person: essentially undetectable. That
-last failure is not a bug in your code — it is the RSSI information limit, and
+last failure is not a bug in your code - it is the RSSI information limit, and
 it is the empirical argument for Phase 2.
 
 ---
 
-## Phase 2 — CSI acquisition
+## Phase 2 - CSI acquisition
 
 **Hardware:** ESP32 + `esp-csi` (~$10), or Raspberry Pi + Nexmon CSI.
 See `docs/HARDWARE.md`.
@@ -95,11 +95,11 @@ power" ambiguity of RSSI largely dissolves.
 1. Flash `esp-csi`; verify `CSI_DATA` lines over serial.
 2. Capture with `wifisense/capture/esp32_csi.py`.
 3. Sanitise: drop guard/null subcarriers; amplitude outlier removal.
-   Phase needs CFO/SFO correction — the practical shortcut is the **CSI ratio**
+   Phase needs CFO/SFO correction - the practical shortcut is the **CSI ratio**
    between two antennas, which cancels the common phase noise (Zeng et al.,
    FarSense). Do not fight raw single-antenna phase; it is mostly hardware noise.
 4. Reduce the subcarrier matrix to a motion series with
-   `csi_to_motion_series()` (PCA/SVD) — this feeds the *existing* Phase 1
+   `csi_to_motion_series()` (PCA/SVD) - this feeds the *existing* Phase 1
    feature and model code unchanged, so you get a like-for-like comparison.
 
 **Deliverable.** The same experiment as Phase 1, same protocol, on CSI. The
@@ -108,7 +108,7 @@ contribution to your own project's argument.
 
 ---
 
-## Phase 3 — Doppler, respiration, and activity recognition
+## Phase 3 - Doppler, respiration, and activity recognition
 
 Now use CSI as more than a better RSSI.
 
@@ -121,7 +121,7 @@ Now use CSI as more than a better RSSI.
   geometry; subject placement dominates whether this works at all.
 - **Activity recognition.** Doppler spectrograms + a small CNN, or the
   handcrafted features already in `wifisense/signal/features.py` + a forest.
-  With <10 sessions per class, the forest will usually beat the CNN — say so
+  With <10 sessions per class, the forest will usually beat the CNN - say so
   rather than forcing deep learning.
 
 **Warning that decides whether this phase is publishable:** WiFi sensing models
@@ -133,11 +133,11 @@ exist precisely because of this.
 
 ---
 
-## Phase 3b — 3D spatial reconstruction (multi-node tomography)
+## Phase 3b - 3D spatial reconstruction (multi-node tomography)
 
 **Hardware:** ~12 ESP32s at staggered heights around the room (~$60).
 
-A single link cannot localise in 3D at any power or carrier frequency — one
+A single link cannot localise in 3D at any power or carrier frequency - one
 number per packet, three unknowns. Spatial diversity is the only fix. N nodes
 give N(N-1)/2 links; inverting the shadowing pattern yields a 3D voxel field.
 
@@ -150,7 +150,7 @@ your actual room against the simulated prediction.
 
 ---
 
-## Phase 4 — Passive radar / true "object detection" (optional, hard)
+## Phase 4 - Passive radar / true "object detection" (optional, hard)
 
 Only if you have a real reason. Two receive chains via SDR (reference channel
 pointed at the router, surveillance channel pointed at the scene), cross-ambiguity
@@ -193,19 +193,19 @@ Starting points; verify exact citations before you cite them.
 **Surveys / orientation**
 - Ma, Zhou, Wang, *WiFi Sensing with Channel State Information: A Survey*,
   ACM Computing Surveys, 2019.
-- IEEE **802.11bf** (WLAN Sensing) task group — sensing is being standardised;
+- IEEE **802.11bf** (WLAN Sensing) task group - sensing is being standardised;
   useful for framing why this matters.
 
 **Foundational systems**
-- Youssef et al., *Challenges: Device-free Passive Localization*, MobiCom 2007 —
+- Youssef et al., *Challenges: Device-free Passive Localization*, MobiCom 2007 -
   origin of device-free passive sensing.
 - Halperin et al., *Tool release: gathering 802.11n traces with CSI*,
-  SIGCOMM CCR 2011 — the Intel 5300 CSI Tool.
-- Wang et al., *E-eyes*, MobiCom 2014 — CSI activity fingerprints.
+  SIGCOMM CCR 2011 - the Intel 5300 CSI Tool.
+- Wang et al., *E-eyes*, MobiCom 2014 - CSI activity fingerprints.
 - Wang et al., *CARM: Understanding and Modeling of WiFi Signal Based Human
-  Activity Recognition*, MobiCom 2015 — CSI-speed model, the Doppler basis.
+  Activity Recognition*, MobiCom 2015 - CSI-speed model, the Doppler basis.
 - Adib & Katabi, *See Through Walls with WiFi*, SIGCOMM 2013; Adib et al.,
-  *WiTrack*, NSDI 2014 — the ambitious end of the field.
+  *WiTrack*, NSDI 2014 - the ambitious end of the field.
 
 **Tooling**
 - Gringoli et al., *Free Your CSI* (Nexmon CSI), WiNTECH 2019.
@@ -213,8 +213,8 @@ Starting points; verify exact citations before you cite them.
 - Hernandez & Bulut, *ESP32 CSI Toolkit*, WoWMoM 2020.
 
 **Methods you will need**
-- Zeng et al., *FarSense*, IMWUT 2019 — CSI ratio for phase noise cancellation.
-- Zheng et al., *Widar3.0*, MobiSys 2019 — cross-domain gesture recognition, BVP.
+- Zeng et al., *FarSense*, IMWUT 2019 - CSI ratio for phase noise cancellation.
+- Zheng et al., *Widar3.0*, MobiSys 2019 - cross-domain gesture recognition, BVP.
 
 **Public datasets** (use one to validate your pipeline before trusting your own
 recordings): Widar3.0, SignFi, UT-HAR.
@@ -230,7 +230,7 @@ Worth settling early, not after you have recordings.
   the RSSI-only fields here are metadata, but do not widen the filter.
 - **Human subjects.** If you record anyone other than yourself and intend to
   publish, you need IRB review. At CMU that is a real process with real lead
-  time — start it before you collect, not after.
+  time - start it before you collect, not after.
 - **Dual use is genuine here.** Through-wall presence detection is a
   privacy-invasive capability. Say so in your write-up; do not pretend a
   sensing paper is neutral.

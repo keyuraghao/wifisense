@@ -10,7 +10,7 @@ Of the three levers, **two do not do what they sound like they do.**
 | Lever | Verdict |
 |---|---|
 | More transmit power | **Does essentially nothing.** |
-| Higher carrier frequency | Real, but only for micro-motion — not for 3D. |
+| Higher carrier frequency | Real, but only for micro-motion - not for 3D. |
 | More bandwidth / more aperture | The actual levers. Neither is a power setting. |
 
 ### Why power does not help
@@ -18,7 +18,7 @@ Of the three levers, **two do not do what they sound like they do.**
 Your link sits around −50 dBm with a −95 dBm noise floor: **45 dB of SNR**. At
 that SNR, amplitude-estimation error from thermal noise is ~0.034 dB. But
 radiotap reports RSSI as an **integer dBm**, so quantisation alone contributes
-1/√12 = **0.289 dB** — 8× larger. Your measurement floor is the quantiser.
+1/√12 = **0.289 dB** - 8× larger. Your measurement floor is the quantiser.
 
 Adding 10 dB of transmit power improves the thermal term and leaves the
 quantiser untouched, for a net precision gain of **0.000 dB**. Worse, power
@@ -27,7 +27,7 @@ actually carries target information is unchanged.
 
 It is also capped by regulation (FCC Part 15: 1 W conducted / 4 W EIRP at
 2.4 GHz; consumer radios ship at ~20 dBm), and unlicensed amplifiers are not
-legal to operate. But the regulatory point is almost beside the point — even
+legal to operate. But the regulatory point is almost beside the point - even
 with unlimited power the physics gives you nothing.
 
 **The way to break that floor is CSI, not watts.** CSI is not quantised to 1 dB
@@ -58,12 +58,12 @@ But it does **nothing** for range resolution, which depends only on bandwidth:
 
 At 80 MHz your range resolution is worse than your room. mmWave systems look
 transformative because they ship with GHz of bandwidth and 12–64 element arrays
-— not because of the carrier itself.
+- not because of the carrier itself.
 
 ### Why one link can never give 3D
 
 Angular resolution is ~0.886·λ/(N·d); at the standard λ/2 spacing that is
-**1.77/N radians — a function of antenna count only, not frequency**. Three
+**1.77/N radians - a function of antenna count only, not frequency**. Three
 antennas give ~34°, which at 5 m range is ±3 m of cross-range error.
 
 More fundamentally: one link yields **one number per packet**. Recovering three
@@ -85,7 +85,7 @@ Implemented in `wifisense/spatial/`, validated by `scripts/rti_sim.py`.
 ### (b) One mmWave radar
 
 TI IWR6843: 4 GHz bandwidth (3.7 cm range resolution) and 3TX×4RX MIMO for real
-3D point clouds, ~$300. Far better data — but it is a radar, not your router,
+3D point clouds, ~$300. Far better data - but it is a radar, not your router,
 and it shares no code with Phases 1–3.
 
 ---
@@ -117,12 +117,12 @@ thin horizontal slab. Probing with a compact spherical target at random heights:
 
 Read **est. spread**: coplanar nodes return the *same* height every single time,
 pinned to the node plane. Their z error looks survivable only because that plane
-happens to sit mid-room — an artefact that collapses the moment you move them.
+happens to sit mid-room - an artefact that collapses the moment you move them.
 The correlation is the honest number.
 
 **3. Calibrate `noise_var` against real empty-room link variance.**
 This is not cosmetic tuning. Under-estimating it makes the inverse over-trust
-the data, and accuracy then gets *worse* as you add nodes — at 16 nodes,
+the data, and accuracy then gets *worse* as you add nodes - at 16 nodes,
 0.61 m with a guessed prior vs 0.16 m with a matched one. Record a few minutes
 of empty room and call `rti.estimate_noise_var()`.
 
@@ -135,9 +135,9 @@ baseline. Rearranged furniture invalidates the baseline; re-record it.
 
 **Validated in simulation:** the reconstruction maths, the node-count curve, the
 coplanar-geometry failure, and the noise-prior sensitivity. The forward model is
-deliberately *not* the one being inverted — finer grid, soft Fresnel taper
+deliberately *not* the one being inverted - finer grid, soft Fresnel taper
 instead of a hard ellipse, correlated fading, node-position jitter, and the 1 dB
-quantiser — so the numbers are not self-fulfilling.
+quantiser - so the numbers are not self-fulfilling.
 
 **Not validated:** any of it on real hardware. And the simulation still omits
 walls, furniture, body orientation, and the fact that a person perturbs
@@ -151,15 +151,15 @@ Treat the simulated figures as an upper bound on what you will measure.
 |---|---|---|
 | ESP32-WROOM-32 dev board | 12 | $60 |
 | USB power supplies / battery packs | 12 | varies |
-| Tape measure, for node positions | 1 | — |
+| Tape measure, for node positions | 1 | - |
 
-Node position error goes straight into localisation error — the simulation
+Node position error goes straight into localisation error - the simulation
 assumes 5 cm placement jitter. Measure carefully; do not eyeball it.
 
 ## Reading
 
 - Wilson & Patwari, *Radio Tomographic Imaging with Wireless Networks*,
-  IEEE TMC 2010 — the RTI formulation implemented here.
+  IEEE TMC 2010 - the RTI formulation implemented here.
 - Wilson & Patwari, *See-Through Walls: Motion Tracking Using Variance-Based
-  Radio Tomography*, IEEE TMC 2011 — variance-based RTI, better for moving targets.
-- Kaltiokallio, Bocca & Patwari — RTI calibration and fade-level effects.
+  Radio Tomography*, IEEE TMC 2011 - variance-based RTI, better for moving targets.
+- Kaltiokallio, Bocca & Patwari - RTI calibration and fade-level effects.

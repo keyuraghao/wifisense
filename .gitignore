@@ -11,3 +11,4 @@ data/raw/
 models/*.joblib
 *.png
 data/live/
+config/nodes.json

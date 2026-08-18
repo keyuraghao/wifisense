@@ -59,7 +59,7 @@ practice.
    USB/M.2 enclosure). Multi-antenna CSI, 802.11ax, best fidelity of the three.
    Only worth it once you know you need AoA or multi-antenna phase.
 
-4. **SDR (HackRF One ~$150, USRP B210 ~$1500)** — only for Phase 4 passive
+4. **SDR (HackRF One ~$150, USRP B210 ~$1500)** - only for Phase 4 passive
    radar. Do not buy this first. It is a much harder project that shares almost
    no code with Phases 1-3.
 
@@ -69,4 +69,4 @@ You do not need to modify or flash the router. It is the *illuminator*: it
 transmits, you measure. Its only relevant properties are that it stays on a
 fixed channel and transmits often enough. Fix the channel in the router admin
 page (disable auto channel selection and DFS) before recording anything you
-intend to keep — a mid-session channel change silently invalidates a recording.
+intend to keep - a mid-session channel change silently invalidates a recording.
