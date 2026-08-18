@@ -33,7 +33,7 @@ sudo iw dev wlan0 set type monitor
 sudo ip link set wlan0 up
 sudo iw dev wlan0 set channel 56 80MHz
 # then run collect.py with --mon wlan0 --no-traffic
-sudo .venv/bin/python scripts/collect.py --label empty --mon wlan0 --no-traffic --seconds 120
+sudo .venv/bin/wifisense sense collect --label empty --mon wlan0 --no-traffic --seconds 120
 ```
 
 Restore afterwards:
@@ -86,17 +86,17 @@ Almost certainly leakage. Check, in order:
 
 ## Live dashboard shows "waiting for frames"
 
-The viewer is tailing a file nothing is writing to. Check `scripts/stream.py` is
+The viewer is tailing a file nothing is writing to. Check `wifisense sense stream` is
 actually running as root in the other terminal and that its frame counter is
 climbing. Confirm the path matches: `stream.py --out` and `live_view.py --follow`
 must point at the same file.
 
 To check the display path independently of the radio, replay a recording. If you
-have none yet, `scripts/selftest.py` generates synthetic ones:
+have none yet, `wifisense sense selftest` generates synthetic ones:
 
 ```bash
-.venv/bin/python scripts/selftest.py          # creates data/sessions_synthetic/
-.venv/bin/python scripts/live_view.py --replay data/sessions_synthetic/walking__synth0 --speed 4
+wifisense sense selftest          # creates data/sessions_synthetic/
+wifisense sense view --replay data/sessions_synthetic/walking__synth0 --speed 4
 ```
 
 If that renders, the problem is capture, not the viewer.

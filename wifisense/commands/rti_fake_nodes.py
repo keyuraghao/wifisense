@@ -24,12 +24,10 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.mesh.crypto import KeyStore, seal_report
-from wifisense.mesh.protocol import DEFAULT_PORT, Measurement, Report, pretty_id
-from wifisense.spatial.geometry import link_pairs, perimeter_nodes
-from wifisense.spatial.simulate import simulate_links
+from ..mesh.crypto import KeyStore, seal_report
+from ..mesh.protocol import DEFAULT_PORT, Measurement, Report, pretty_id
+from ..spatial.geometry import link_pairs, perimeter_nodes
+from ..spatial.simulate import simulate_links
 
 
 def fake_mac(i: int) -> str:
@@ -43,7 +41,7 @@ def free_space_rssi(d: float, tx_dbm: float = 4.0, f_ghz: float = 2.437) -> floa
     return tx_dbm - fspl - 8.0            # 8 dB of indoor excess loss
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--nodes", type=int, default=12)
     ap.add_argument("--room", nargs=3, type=float, default=[5.0, 4.0, 2.4])
@@ -66,7 +64,7 @@ def main() -> int:
                     help="send unauthenticated frames (to test that the server "
                          "rejects them)")
     ap.add_argument("--boot-id", type=int, default=1)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     keys = None
     if not args.insecure:

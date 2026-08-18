@@ -10,9 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense import hw
+from .. import hw
 
 # Chipsets with a public, working CSI extraction path.
 # Looked up longest-key-first so 'mt7921e' matches 'mt7921' before 'mt76'.
@@ -35,7 +33,7 @@ def sh(cmd: list[str]) -> str:
         return ""
 
 
-def main() -> int:
+def main(argv=None) -> int:
     print("=" * 68)
     print("WiFi sensing hardware capability report")
     print("=" * 68)

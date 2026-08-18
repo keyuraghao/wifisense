@@ -17,21 +17,19 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense import hw
-from wifisense.capture.monitor_rssi import RSSICapture
-from wifisense.capture.traffic import PingFlood, default_gateway
-from wifisense.models.classify import load_model
-from wifisense.models.detector import EnergyDetector
-from wifisense.pipeline.stream import RingBuffer
-from wifisense.signal import features as ft
-from wifisense.signal import preprocess as pp
+from .. import hw
+from ..capture.monitor_rssi import RSSICapture
+from ..capture.traffic import PingFlood, default_gateway
+from ..models.classify import load_model
+from ..models.detector import EnergyDetector
+from ..pipeline.stream import RingBuffer
+from ..signal import features as ft
+from ..signal import preprocess as pp
 
 BAR = "#"
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--iface", default="wlan0")
     ap.add_argument("--mon", default="mon0")
@@ -42,7 +40,7 @@ def main() -> int:
                     help="seconds of empty-room calibration (0 to skip)")
     ap.add_argument("--model", default=None, help="optional trained classifier")
     ap.add_argument("--ping-interval", type=float, default=0.002)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     if os.geteuid() != 0:
         print("error: must run as root", file=sys.stderr)

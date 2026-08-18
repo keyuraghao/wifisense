@@ -26,7 +26,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 SKETCH = ROOT / "firmware" / "esp32_rti_node"
 BUILD = ROOT / "firmware" / "build"
 CORE_VER = "3.3.11"
@@ -149,12 +149,12 @@ def build_one(family: str, spec: dict, cli: str) -> dict:
     }
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--targets", nargs="*", default=None,
                     help="families to build (default: all)")
     ap.add_argument("--out", default=str(BUILD))
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     globals()["BUILD"] = Path(args.out)
 

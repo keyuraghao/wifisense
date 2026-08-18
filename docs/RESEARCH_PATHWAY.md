@@ -67,13 +67,13 @@ stream; aim for **>200 Hz** effective capture rate.
 
 **Steps**
 
-1. `python scripts/check_hw.py` - confirm monitor mode.
+1. `wifisense sense check` - confirm monitor mode.
 2. Fix the router to one channel; disable auto-channel and DFS.
-3. Record interleaved sessions (`scripts/collect.py`), ≥3 per class, ≥90 s each:
+3. Record interleaved sessions (`wifisense sense collect`), ≥3 per class, ≥90 s each:
    `empty`, `sitting`, `walking`. **Interleave and repeat on a second day.**
-4. `python scripts/plot_session.py <session>` - look at every recording before
+4. `wifisense sense plot <session>` - look at every recording before
    it enters a dataset. You will catch dropouts and channel changes here.
-5. `python scripts/build_dataset.py` then `python scripts/train.py`.
+5. `wifisense sense dataset` then `wifisense sense train`.
 
 **Deliverable.** A session-grouped-CV accuracy for presence/motion, reported
 against the unsupervised `EnergyDetector` baseline and against majority-class
@@ -159,20 +159,20 @@ give N(N-1)/2 links; inverting the shadowing pattern yields a 3D voxel field.
 
 **Built and working:**
 - reconstruction and node-failure recovery: `wifisense/spatial/`
-- design study, node count and placement: `scripts/rti_sim.py`
+- design study, node count and placement: `wifisense study rti`
 - mesh protocol, auto-enrolment, per-link baselines: `wifisense/mesh/`
 - authenticated encryption: `wifisense/mesh/crypto.py`, `docs/SECURITY.md`
-- live dashboard: `scripts/rti_dashboard.py`
+- live dashboard: `wifisense mesh dashboard`
 - node firmware for 6 ESP32 families: `firmware/esp32_rti_node/`
 
-**Test it with no hardware:** `scripts/rti_fake_nodes.py` runs a virtual mesh
+**Test it with no hardware:** `wifisense mesh simulate` runs a virtual mesh
 over the real UDP protocol, with node-failure injection.
 
 **Steps**
 
 1. Read `docs/GOING_3D.md` - why power and carrier frequency are the wrong
    knobs, and how many nodes you actually need.
-2. Run the design study for your room: `scripts/rti_sim.py --room X Y Z`.
+2. Run the design study for your room: `wifisense study rti --room X Y Z`.
 3. Buy the nodes. Any WiFi-capable ESP32; not H2 or P4.
 4. Follow `docs/GETTING_STARTED.md` to flash and place them.
 5. Calibrate with the room empty, then measure.

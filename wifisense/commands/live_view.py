@@ -30,18 +30,16 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import matplotlib
 
-from wifisense.models.detector import EnergyDetector
-from wifisense.pipeline.stream import CSVTailer, RingBuffer, SessionReplayer
-from wifisense.signal import features as ft
-from wifisense.signal import preprocess as pp
+from ..models.detector import EnergyDetector
+from ..pipeline.stream import CSVTailer, RingBuffer, SessionReplayer
+from ..signal import features as ft
+from ..signal import preprocess as pp
+from ..ui import theme
+from ..ui.theme import PALETTE as C
 
 FMAX = 40.0          # top of the displayed motion band
-IDLE_COLOR = "#2e7d32"
-MOTION_COLOR = "#c62828"
 
 
 class LiveState:
@@ -94,11 +92,17 @@ class LiveState:
         if self.calibrating:
             self.calib_vals.append(stat)
             if time.time() >= self.calib_deadline:
-                if len(self.calib_vals) >= 15:
+                # The guard must match what calibrate() actually requires, or a
+                # short window raises straight through the animation callback
+                # and takes the whole dashboard down.
+                try:
                     self.det.calibrate(np.asarray(self.calib_vals))
                     self.calibrating = False
-                else:
-                    self.calib_deadline = time.time() + 5  # not enough yet
+                except ValueError:
+                    # Too few windows yet: keep going rather than fail. At a low
+                    # frame rate or a short --calibrate this is normal, not an
+                    # error.
+                    self.calib_deadline = time.time() + 5
         else:
             self.state = bool(self.det.predict(np.asarray([stat]))[-1])
             if self.clf is not None:
@@ -179,7 +183,7 @@ def _start_inprocess_capture(args):
     return tailer.poll, f"CAPTURE {link.ssid} ch{link.channel}"
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     src = ap.add_mutually_exclusive_group(required=True)
@@ -203,7 +207,7 @@ def main() -> int:
     ap.add_argument("--headless", type=float, default=0.0,
                     help="run N seconds with no window, then --save the frame "
                          "(for SSH sessions and for testing)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     matplotlib.use("Agg" if args.headless else args.backend)
     import matplotlib.pyplot as plt
@@ -213,30 +217,40 @@ def main() -> int:
     st = LiveState(args)
     ncols = max(40, int(args.history / args.hop))
 
-    fig, ax = plt.subplots(4, 1, figsize=(12, 9), constrained_layout=True,
-                           gridspec_kw={"height_ratios": [2, 2, 3, 2]})
-    fig.canvas.manager.set_window_title("WiFi sensing - live")
+    theme.apply()
+    fig = plt.figure(figsize=(13, 9))
+    fig.canvas.manager.set_window_title("wifisense - live")
+    gs = fig.add_gridspec(4, 4, height_ratios=[1, 1, 1.5, 1],
+                          left=0.055, right=0.985, top=0.862, bottom=0.065,
+                          hspace=0.55, wspace=0.22)
 
-    ln_raw, = ax[0].plot([], [], lw=0.7, color="#1565c0")
-    ax[0].set_ylabel("RSSI (dBm)")
+    ax = [fig.add_subplot(gs[i, :]) for i in range(3)]
+    ax_e = fig.add_subplot(gs[3, 0:3])
+    tiles = [fig.add_subplot(gs[3, 3])]
+    tile_gs = gs[3, 3].subgridspec(1, 2, wspace=0.2)
+    tiles[0].remove()
+    tiles = [fig.add_subplot(tile_gs[0, i]) for i in range(2)]
 
-    ln_mot, = ax[1].plot([], [], lw=0.7, color="#6a1b9a")
-    ax[1].axhline(0, color="k", lw=0.4)
-    ax[1].set_ylabel("motion (dB)")
+    status = theme.StatusBar(fig)
+
+    ln_raw, = ax[0].plot([], [], lw=0.9, color=C["s2"])
+    ax[0].set_ylabel("dBm", fontsize=7.5)
+
+    ln_mot, = ax[1].plot([], [], lw=0.9, color=C["s3"])
+    ax[1].axhline(0, color=C["border"], lw=0.7)
+    ax[1].set_ylabel("dB", fontsize=7.5)
 
     im = ax[2].imshow(np.zeros((2, ncols)), aspect="auto", origin="lower",
-                      extent=[-args.history, 0, 0, FMAX], cmap="magma",
-                      interpolation="nearest")
-    ax[2].set_ylabel("Hz")
+                      extent=[-args.history, 0, 0, FMAX], cmap=theme.SEQUENTIAL,
+                      interpolation="bilinear")
+    theme.image_panel(ax[2])
+    ax[2].set_ylabel("Hz", fontsize=7.5)
 
-    ln_e, = ax[3].plot([], [], lw=1.2, color="#00695c")
-    hi_line = ax[3].axhline(0, color=MOTION_COLOR, ls="--", lw=1.0)
-    lo_line = ax[3].axhline(0, color="#ef9a9a", ls=":", lw=1.0)
-    ax[3].set_ylabel("energy (dB)")
-    ax[3].set_xlabel("seconds ago")
-
-    banner = fig.text(0.5, 0.985, "", ha="center", va="top", fontsize=13,
-                      fontweight="bold")
+    ln_e, = ax_e.plot([], [], lw=1.5, color=C["s1"])
+    hi_line = ax_e.axhline(0, color=C["alert"], ls="--", lw=1.0)
+    lo_line = ax_e.axhline(0, color=theme.fade(C["alert"], 0.5), ls=":", lw=1.0)
+    ax_e.set_ylabel("dB", fontsize=7.5)
+    ax_e.set_xlabel("seconds ago", fontsize=7.5)
 
     def update(_):
         now = time.time()
@@ -247,9 +261,8 @@ def main() -> int:
 
         prep, row = st.analyse()
         if prep is None:
-            banner.set_text(f"{desc}   waiting for frames "
-                            f"({len(st.ring)} buffered)")
-            banner.set_color("#616161")
+            status.set("WAITING FOR FRAMES",
+                       f"{len(st.ring)} buffered  ·  {desc}", "muted")
             return
 
         t = prep["t"] - prep["t"][-1]          # seconds ago, 0 = now
@@ -258,41 +271,59 @@ def main() -> int:
         lo, hi = np.percentile(prep["clean"], [1, 99])
         pad = max(1.0, (hi - lo) * 0.2)
         ax[0].set_ylim(lo - pad, hi + pad)
+        theme.panel(ax[0], "received signal", "raw RSSI, 1 dB quantised")
 
         ln_mot.set_data(t, prep["motion"])
         ax[1].set_xlim(-args.history, 0)
         amp = max(0.5, np.abs(prep["motion"]).max() * 1.1)
         ax[1].set_ylim(-amp, amp)
+        theme.panel(ax[1], "motion",
+                    f"bandpassed {pp.MOTION_BAND_HZ[0]}-{pp.MOTION_BAND_HZ[1]} Hz")
 
         st.push_spectrum(prep["motion"], args.fs, ncols)
         im.set_data(st.waterfall)
         vmax = float(st.waterfall.max())
         im.set_clim(vmax - 35, vmax)
+        theme.panel(ax[2], "doppler waterfall", "walking lights up 1-5 Hz")
 
         if st.energy:
             e = np.asarray(st.energy)
             et = np.asarray(st.energy_t) - now
             ln_e.set_data(et, e)
-            ax[3].set_xlim(-args.history, 0)
+            # ax.collections is an immutable view in modern matplotlib, so the
+            # previous frame's fill has to be removed artist by artist. Without
+            # this the fills stack up and both memory and redraw time grow.
+            for coll in list(ax_e.collections):
+                coll.remove()
+            ax_e.fill_between(et, 0, e, color=theme.fade(C["s1"], 0.28), lw=0)
+            ax_e.set_xlim(-args.history, 0)
             top = max(e.max(), st.det.threshold_hi) * 1.25 + 1e-6
-            ax[3].set_ylim(0, top)
+            ax_e.set_ylim(0, top)
             hi_line.set_ydata([st.det.threshold_hi] * 2)
             lo_line.set_ydata([st.det.threshold_lo] * 2)
+            theme.panel(ax_e, "motion energy", "against the calibrated threshold")
 
         rate = st.ring.rate_hz
+        theme.tile(tiles[0], "rate", f"{rate:.0f}",
+                   C["s2"] if rate >= 200 else C["warn"],
+                   f"Hz  ·  nyquist {rate/2:.0f} Hz")
         if st.calibrating:
             left = max(0.0, st.calib_deadline - now)
-            banner.set_text(f"CALIBRATING {left:4.1f}s - keep the space empty "
-                            f"| {rate:.0f} Hz")
-            banner.set_color("#ef6c00")
+            theme.tile(tiles[1], "calibrating", f"{left:.0f}s", C["warn"],
+                       "keep the space empty")
+            status.set("CALIBRATING",
+                       f"{left:.0f}s remaining  ·  keep the space empty  ·  {desc}",
+                       "warn")
         else:
-            tag = "MOTION" if st.state else "idle"
-            extra = f"  |  {st.label}" if st.label else ""
-            banner.set_text(f"{tag}{extra}   energy {float(row['std']):.2f} dB "
-                            f"(thr {st.det.threshold_hi:.2f})   "
-                            f"peak {float(row['peak_freq']):.1f} Hz   "
-                            f"{rate:.0f} Hz   {desc}")
-            banner.set_color(MOTION_COLOR if st.state else IDLE_COLOR)
+            moving = st.state
+            theme.tile(tiles[1], "energy", f"{float(row['std']):.2f}",
+                       C["active"] if moving else C["ok"],
+                       f"dB  ·  threshold {st.det.threshold_hi:.2f}")
+            extra = f"   ·   class {st.label}" if st.label else ""
+            status.set("MOTION" if moving else "IDLE",
+                       f"peak {float(row['peak_freq']):.1f} Hz   ·   "
+                       f"{rate:.0f} Hz capture{extra}   ·   {desc}",
+                       "active" if moving else "ok")
 
     if args.headless:
         deadline = time.time() + args.headless

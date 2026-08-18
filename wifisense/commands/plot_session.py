@@ -16,17 +16,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import signal as sps
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.signal import preprocess as pp
+from ..signal import preprocess as pp
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("session", help="session directory")
     ap.add_argument("--fs", type=float, default=100.0)
     ap.add_argument("--out", default=None)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     sess = Path(args.session)
     df = pp.load_capture(sess / "capture.csv")

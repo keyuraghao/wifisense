@@ -17,10 +17,8 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.spatial import rti, simulate
-from wifisense.spatial.geometry import VoxelGrid, perimeter_nodes
+from ..spatial import rti, simulate
+from ..spatial.geometry import VoxelGrid, perimeter_nodes
 
 FADING_LEVELS = [0.5, 1.0, 1.5, 2.0, 3.0]
 
@@ -133,7 +131,7 @@ def render(room, grid, heights, per_wall, out_path, seed) -> None:
           f"{abs(est[2]-truth[2]):.2f} m)")
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--room", nargs=3, type=float, default=[5.0, 4.0, 2.4],
                     metavar=("X", "Y", "Z"))
@@ -142,7 +140,7 @@ def main() -> int:
     ap.add_argument("--trials", type=int, default=50)
     ap.add_argument("--seed", type=int, default=2)
     ap.add_argument("--out", default="rti_reconstruction.png")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     room = ((0.0, args.room[0]), (0.0, args.room[1]), (0.0, args.room[2]))
     grid = VoxelGrid(*room, voxel_m=args.voxel)

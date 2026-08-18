@@ -12,12 +12,10 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.pipeline.dataset import build
+from ..pipeline.dataset import build
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--sessions", default="data/sessions")
     ap.add_argument("--out", default="data/datasets/features.parquet")
@@ -26,7 +24,7 @@ def main() -> int:
     ap.add_argument("--hop", type=float, default=0.5, help="window hop (s)")
     ap.add_argument("--include-level", action="store_true",
                     help="add absolute RSSI level features (see features.py)")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     data, summary = build(args.sessions, fs=args.fs, win_s=args.win,
                           hop_s=args.hop, include_level=args.include_level)

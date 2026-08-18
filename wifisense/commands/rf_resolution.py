@@ -9,12 +9,10 @@ import math
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.spatial import physics as ph
+from ..spatial import physics as ph
 
 
-def main() -> int:
+def main(argv=None) -> int:
     print("=" * 78)
     print("1. TRANSMIT POWER")
     print("=" * 78)

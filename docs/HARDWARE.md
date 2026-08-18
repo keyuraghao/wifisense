@@ -1,6 +1,6 @@
 # Hardware: what you have, what it limits, what to buy
 
-Run `.venv/bin/python scripts/check_hw.py` for the live report.
+Run `wifisense sense check` for the live report.
 
 ## What is in this laptop
 

@@ -13,12 +13,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.models.classify import (
+from ..models.classify import (
     fit_final, feature_importance, grouped_cv_report, save_model,
 )
-from wifisense.models.detector import EnergyDetector
+from ..models.detector import EnergyDetector
 
 
 def baseline_eval(df: pd.DataFrame, baseline_label: str, stat: str) -> None:
@@ -57,14 +55,14 @@ def baseline_eval(df: pd.DataFrame, baseline_label: str, stat: str) -> None:
     print(f"  false-alarm rate on '{baseline_label}': {fp / max(1, fp + tn):.4f}")
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data/datasets/features.parquet")
     ap.add_argument("--out", default="models/rf.joblib")
     ap.add_argument("--baseline-label", default="empty")
     ap.add_argument("--baseline-stat", default="std")
     ap.add_argument("--seed", type=int, default=0)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     path = Path(args.data)
     if not path.exists():

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wifisense"
+version = "0.4.0"
+description = "Device-free WiFi RF sensing: single-link RSSI, and a 3D ESP32 node mesh"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0", "scipy>=1.14", "pandas>=2.2", "scikit-learn>=1.5",
+    "matplotlib>=3.9", "scapy>=2.6", "pyarrow>=17", "pyserial>=3.5",
+    "joblib>=1.4", "rich>=13", "cryptography>=42", "esptool>=4.7",
+]
+
+[project.scripts]
+wifisense = "wifisense.cli:entrypoint"
+
+[tool.setuptools.packages.find]
+include = ["wifisense*"]

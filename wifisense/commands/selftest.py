@@ -17,11 +17,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense.models.classify import grouped_cv_report
-from wifisense.models.detector import EnergyDetector
-from wifisense.pipeline.dataset import build
+from ..models.classify import grouped_cv_report
+from ..models.detector import EnergyDetector
+from ..pipeline.dataset import build
 
 OUT = Path("data/sessions_synthetic")
 
@@ -74,7 +72,7 @@ def synth_session(label: str, seed: int, path: Path) -> dict:
     return meta
 
 
-def main() -> int:
+def main(argv=None) -> int:
     if OUT.exists():
         shutil.rmtree(OUT)
 

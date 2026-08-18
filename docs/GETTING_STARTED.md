@@ -7,7 +7,7 @@ binary. Verified end to end on an **ESP32-S3**; built for six families.
 ## Supported hardware
 
 ```bash
-.venv/bin/python scripts/flash_node.py --list
+wifisense node flash --list
 ```
 
 | Family | Firmware | Bootloader offset | USB |
@@ -69,7 +69,7 @@ ls /dev/ttyACM* /dev/ttyUSB*
 - `/dev/ttyACM*` means **native USB** (S3, C3, C6, S2)
 - `/dev/ttyUSB*` means an **external bridge** (CP210x / CH340), i.e. classic ESP32
 
-You do not need to act on this. `scripts/flash_node.py` detects the chip and
+You do not need to act on this. `wifisense node flash` detects the chip and
 picks the right firmware; the port name is only a hint about which family.
 
 You do not need to know the FQBN - `flash_node.py` resolves it. For reference,
@@ -79,7 +79,7 @@ UART pins and you see nothing over USB.
 ## 2. Generate the mesh key (once, before flashing anything)
 
 ```bash
-.venv/bin/python scripts/gen_mesh_key.py
+wifisense mesh key
 ```
 
 Writes `config/mesh.key` (server, mode 600) and
@@ -89,7 +89,7 @@ shares this key. Neither file is committed. See `docs/SECURITY.md`.
 ## 3. Configure WiFi
 
 ```bash
-.venv/bin/python scripts/setup_firmware.py \
+wifisense node setup \
   --ssid 'YOUR_2.4GHz_SSID' --password 'YOUR_PASSWORD'
 ```
 
@@ -109,7 +109,7 @@ Three things to get right:
 ## 4. Build the firmware for every family (once)
 
 ```bash
-.venv/bin/python scripts/build_firmware.py
+wifisense node build
 ```
 
 About 80 s for all nine families. Output lands in `firmware/build/` with a
@@ -118,7 +118,7 @@ About 80 s for all nine families. Output lands in `firmware/build/` with a
 ## 5. Flash
 
 ```bash
-.venv/bin/python scripts/flash_node.py --monitor
+wifisense node flash --monitor
 ```
 
 No board argument. It asks the chip what it is, looks up the matching binary,
@@ -177,7 +177,7 @@ corrupts the geometry worse than a missing node does.
 ## 7. Run
 
 ```bash
-.venv/bin/python scripts/rti_dashboard.py --room 5 4 2.4
+wifisense mesh dashboard --room 5 4 2.4
 ```
 
 Keep the room **empty** for the calibration window (default 20 s). It starts

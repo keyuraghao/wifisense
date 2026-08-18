@@ -20,14 +20,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense import hw
-from wifisense.capture.monitor_rssi import RSSICapture
-from wifisense.capture.traffic import PingFlood, default_gateway
+from .. import hw
+from ..capture.monitor_rssi import RSSICapture
+from ..capture.traffic import PingFlood, default_gateway
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--iface", default="wlan0")
     ap.add_argument("--mon", default="mon0")
@@ -35,7 +33,7 @@ def main() -> int:
     ap.add_argument("--no-traffic", action="store_true")
     ap.add_argument("--ping-interval", type=float, default=0.002)
     ap.add_argument("--seconds", type=float, default=0.0, help="0 = run forever")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     if os.geteuid() != 0:
         print("error: must run as root", file=sys.stderr)

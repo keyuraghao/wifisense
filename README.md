@@ -16,6 +16,32 @@ the tracks are ordered this way.
 
 ---
 
+## One command for everything
+
+```bash
+source .venv/bin/activate
+pip install -e .          # once; puts `wifisense` on your PATH
+
+wifisense                 # the full map of what is available
+```
+
+Everything lives under four groups:
+
+| Group | For |
+|---|---|
+| `wifisense sense ...` | single-link RSSI: record, inspect, train, watch live |
+| `wifisense mesh ...`  | the ESP32 mesh: key, dashboard, simulated nodes |
+| `wifisense node ...`  | node firmware: configure, build, flash |
+| `wifisense study ...` | physics and design studies, no hardware needed |
+
+`wifisense <group>` lists that group's commands; `--help` on any of them shows
+its options. The old script names still work as aliases and print the new form.
+
+Commands needing root take the venv binary explicitly:
+`sudo .venv/bin/wifisense sense collect ...`
+
+---
+
 ## Status
 
 | Component | State |
@@ -44,17 +70,17 @@ motion, and it will fail on a seated breathing person. See
 ```bash
 source .venv/bin/activate
 
-python scripts/selftest.py          # validate the pipeline, no radio needed
-python scripts/check_hw.py          # what can this radio actually do?
+wifisense sense selftest          # validate the pipeline, no radio needed
+wifisense sense check          # what can this radio actually do?
 
 # record. Interleave classes; repeat the whole block on a second day.
-sudo .venv/bin/python scripts/collect.py --label empty   --seconds 120
-sudo .venv/bin/python scripts/collect.py --label walking --seconds 120
-sudo .venv/bin/python scripts/collect.py --label sitting --seconds 120
+sudo .venv/bin/wifisense sense collect --label empty   --seconds 120
+sudo .venv/bin/wifisense sense collect --label walking --seconds 120
+sudo .venv/bin/wifisense sense collect --label sitting --seconds 120
 
-python scripts/plot_session.py data/sessions/walking__<timestamp>  # look before trusting
-python scripts/build_dataset.py
-python scripts/train.py
+wifisense sense plot data/sessions/walking__<timestamp>  # look before trusting
+wifisense sense dataset
+wifisense sense train
 ```
 
 `sudo` is needed for the monitor vif and the raw socket. Use the venv
@@ -65,8 +91,8 @@ interpreter explicitly under sudo, as shown, or you get the system python.
 Capture needs root, the GUI does not, so they are separate processes.
 
 ```bash
-sudo .venv/bin/python scripts/stream.py                              # terminal 1
-python scripts/live_view.py --follow data/live/stream.csv            # terminal 2
+sudo .venv/bin/wifisense sense stream                              # terminal 1
+wifisense sense view --follow data/live/stream.csv            # terminal 2
 ```
 
 Four panels: raw RSSI, bandpassed motion, a rolling 0-40 Hz waterfall, and
@@ -77,7 +103,7 @@ No radio and no root? Replay a recording through the identical display and
 detection code:
 
 ```bash
-python scripts/live_view.py --replay data/sessions/walking__20260818-011500
+wifisense sense view --replay data/sessions/walking__20260818-011500
 ```
 
 ---
@@ -91,8 +117,8 @@ engineering shortfall. The fix is spatial diversity: ~12 nodes around the room a
 Try the whole stack with no hardware:
 
 ```bash
-python scripts/rti_dashboard.py                                       # terminal 1
-python scripts/rti_fake_nodes.py --nodes 12 --fail-after 28 --fail-count 4 \
+wifisense mesh dashboard                                       # terminal 1
+wifisense mesh simulate --nodes 12 --fail-after 28 --fail-count 4 \
                                  --revive-after 12                    # terminal 2
 ```
 
@@ -103,10 +129,10 @@ exercised. Only the radio is simulated.
 With real ESP32s, follow [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md):
 
 ```bash
-python scripts/gen_mesh_key.py                        # once, before flashing
-python scripts/setup_firmware.py --ssid ... --password ...
-python scripts/build_firmware.py                      # builds all families
-python scripts/flash_node.py --monitor                # plug in ANY ESP32
+wifisense mesh key                        # once, before flashing
+wifisense node setup --ssid ... --password ...
+wifisense node build                      # builds all families
+wifisense node flash --monitor                # plug in ANY ESP32
 ```
 
 The firmware is **model-independent**: one sketch, built for ESP32, S2, S3, C3,
@@ -116,8 +142,8 @@ have no WiFi radio and cannot be nodes.
 ### Design study before you buy
 
 ```bash
-python scripts/rf_resolution.py    # what power/frequency/bandwidth actually buy
-python scripts/rti_sim.py          # how many nodes, placed where
+wifisense study physics    # what power/frequency/bandwidth actually buy
+wifisense study rti          # how many nodes, placed where
 ```
 
 ---
@@ -157,6 +183,7 @@ and carries no information.
 
 ```
 wifisense/
+  cli.py                     single entry point, grouped subcommands
   hw.py                      radio/interface control, monitor vif lifecycle
   capture/
     monitor_rssi.py          per-frame RSSI from monitor mode
@@ -182,25 +209,9 @@ wifisense/
     protocol.py              UDP wire format
     registry.py              auto-enrolment, liveness, per-link baselines
     server.py                collector thread + live reconstruction session
-
-scripts/
-  selftest.py                validate the whole Track A pipeline, no radio
-  check_hw.py                what this radio supports
-  collect.py                 record a labelled session          (root)
-  plot_session.py            inspect a recording before using it
-  build_dataset.py           sessions -> features
-  train.py                   evaluate against baseline and chance
-  stream.py                  continuous capture                 (root)
-  live_view.py               real-time dashboard                (no root)
-  live_detect.py             terminal one-liner                 (root)
-  rf_resolution.py           what power/frequency/bandwidth buy you
-  rti_sim.py                 3D tomography design study
-  rti_dashboard.py           live mesh dashboard + reconstruction
-  rti_fake_nodes.py          virtual ESP32 mesh, with failure injection
-  gen_mesh_key.py            generate the mesh master key       (once)
-  setup_firmware.py          generate firmware config.h
-  build_firmware.py          build for every ESP32 family
-  flash_node.py              detect the plugged-in chip and flash it
+  ui/
+    theme.py                 dashboard design system: palette, panels, tiles
+  commands/                  one module per subcommand, imported lazily
 
 firmware/
   esp32_rti_node/            one sketch, model-independent

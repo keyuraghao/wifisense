@@ -1,7 +1,7 @@
 # Mesh security
 
 ```bash
-.venv/bin/python scripts/gen_mesh_key.py    # once, before flashing anything
+wifisense mesh key    # once, before flashing anything
 ```
 
 Writes `config/mesh.key` (server, mode 600) and

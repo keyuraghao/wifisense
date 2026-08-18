@@ -23,7 +23,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "firmware" / "build"
 
 # Offsets that never vary by family. bootloader_addr DOES vary and comes from
@@ -113,7 +113,7 @@ def monitor(port: str, seconds: float) -> None:
                     print(t)
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", default=None)
     ap.add_argument("--family", default=None, help="skip detection (rarely needed)")
@@ -122,7 +122,7 @@ def main() -> int:
     ap.add_argument("--monitor", action="store_true")
     ap.add_argument("--monitor-seconds", type=float, default=25.0)
     ap.add_argument("--list", action="store_true", help="show supported families")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     man = load_manifest()
 

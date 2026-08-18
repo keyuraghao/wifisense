@@ -4,10 +4,10 @@ Run it with no hardware at all:
 
 ```bash
 # terminal 1 - server, reconstruction, dashboard
-.venv/bin/python scripts/rti_dashboard.py
+wifisense mesh dashboard
 
 # terminal 2 - 12 virtual nodes, 4 of which die at t=28s and return at t=40s
-.venv/bin/python scripts/rti_fake_nodes.py --nodes 12 --fail-after 28 --fail-count 4 --revive-after 12
+wifisense mesh simulate --nodes 12 --fail-after 28 --fail-count 4 --revive-after 12
 ```
 
 The virtual nodes speak the real protocol over a real UDP socket, so enrolment,
@@ -36,7 +36,7 @@ deliver stale measurements.
 
 ## Adding a node
 
-Run `scripts/gen_mesh_key.py` once before flashing anything - it generates the
+Run `wifisense mesh key` once before flashing anything - it generates the
 mesh key that every node shares. See `docs/SECURITY.md`.
 
 Three steps, and the same binary goes on every node:

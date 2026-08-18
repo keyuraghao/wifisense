@@ -23,14 +23,12 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from wifisense import hw
-from wifisense.capture.monitor_rssi import RSSICapture
-from wifisense.capture.traffic import PingFlood, default_gateway
+from .. import hw
+from ..capture.monitor_rssi import RSSICapture
+from ..capture.traffic import PingFlood, default_gateway
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Record a WiFi sensing session")
     ap.add_argument("--label", required=True,
                     help="ground-truth class, e.g. empty / walking / sitting")
@@ -44,7 +42,7 @@ def main() -> int:
     ap.add_argument("--note", default="", help="free-text note stored in meta.json")
     ap.add_argument("--countdown", type=int, default=5,
                     help="seconds to get into position before capture starts")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     if os.geteuid() != 0:
         print("error: must run as root (monitor vif + raw socket)", file=sys.stderr)

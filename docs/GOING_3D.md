@@ -1,7 +1,7 @@
 # Going 3D: what power, frequency and geometry actually buy
 
-Run `.venv/bin/python scripts/rf_resolution.py` for the live numbers, and
-`.venv/bin/python scripts/rti_sim.py` for the 3D design study.
+Run `wifisense study physics` for the live numbers, and
+`wifisense study rti` for the 3D design study.
 
 ## The short version
 
@@ -80,7 +80,7 @@ Surround the room with ~12 ESP32s. N nodes give N(N−1)/2 links, and inverting
 the shadowing pattern gives a 3D voxel field (Wilson & Patwari, RTI, IEEE TMC
 2010). Keeps the WiFi framing, extends the existing code, costs ~$60.
 
-Implemented in `wifisense/spatial/`, validated by `scripts/rti_sim.py`.
+Implemented in `wifisense/spatial/`, validated by `wifisense study rti`.
 
 ### (b) One mmWave radar
 
@@ -154,7 +154,7 @@ Treat the simulated figures as an upper bound on what you will measure.
 | Tape measure, for node positions | 1 | - |
 
 Buy whatever is cheapest: ESP32, S2, S3, C3, C5 and C6 all run the same
-firmware, and `scripts/flash_node.py` detects which you plugged in. **Avoid
+firmware, and `wifisense node flash` detects which you plugged in. **Avoid
 ESP32-H2 and ESP32-P4** - they have no WiFi radio and cannot be mesh nodes.
 Mixing families in one mesh is fine.
 
