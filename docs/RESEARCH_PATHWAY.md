@@ -13,6 +13,8 @@ skip ahead: Phase 3 with no Phase 1 baseline is a result nobody can interpret.
 
 ## Phase 0 - Frame the question (do this before writing more code)
 
+> **Status: your call to make.** Nothing here is code.
+
 "Detect objects" is four different research problems wearing one coat. Pick one;
 they need different signals, different setups, and different evaluations.
 
@@ -38,7 +40,11 @@ much harder problem (Phase 4+, and largely an SDR/mmWave one).
 
 ---
 
-## Phase 1 - RSSI motion & presence sensing  ← **start here, works today**
+## Phase 1 - RSSI motion & presence sensing  <- **start here**
+
+> **Status: tooling complete and validated; no labelled data recorded yet.**
+> Capture is confirmed working on this laptop (82,886 frames at 1041 Hz
+> against the router). What remains is yours: record sessions, evaluate.
 
 **Hardware:** the laptop's MT7921 in monitor mode + your router. Nothing to buy.
 
@@ -82,6 +88,10 @@ it is the empirical argument for Phase 2.
 
 ## Phase 2 - CSI acquisition
 
+> **Status: reader written (`wifisense/capture/esp32_csi.py`), untested on
+> hardware.** Needs an ESP32 flashed with `esp-csi` firmware, which is a
+> different firmware from this project's mesh node.
+
 **Hardware:** ESP32 + `esp-csi` (~$10), or Raspberry Pi + Nexmon CSI.
 See `docs/HARDWARE.md`.
 
@@ -110,6 +120,8 @@ contribution to your own project's argument.
 
 ## Phase 3 - Doppler, respiration, and activity recognition
 
+> **Status: not started.** Depends on Phase 2.
+
 Now use CSI as more than a better RSSI.
 
 - **Doppler / DFS.** Short-time FFT of the CSI stream gives a Doppler
@@ -135,22 +147,46 @@ exist precisely because of this.
 
 ## Phase 3b - 3D spatial reconstruction (multi-node tomography)
 
+> **Status: fully implemented and simulation-validated. Firmware runs on
+> real hardware. Multi-node behaviour in a real room is untested.**
+> This can be done in parallel with Phase 2; it needs no CSI.
+
 **Hardware:** ~12 ESP32s at staggered heights around the room (~$60).
 
 A single link cannot localise in 3D at any power or carrier frequency - one
 number per packet, three unknowns. Spatial diversity is the only fix. N nodes
 give N(N-1)/2 links; inverting the shadowing pattern yields a 3D voxel field.
 
-Implemented in `wifisense/spatial/`, with the design study and accuracy
-simulation in `scripts/rti_sim.py`. Full treatment, including why transmit power
-and carrier frequency are the wrong knobs, in `docs/GOING_3D.md`.
+**Built and working:**
+- reconstruction and node-failure recovery: `wifisense/spatial/`
+- design study, node count and placement: `scripts/rti_sim.py`
+- mesh protocol, auto-enrolment, per-link baselines: `wifisense/mesh/`
+- authenticated encryption: `wifisense/mesh/crypto.py`, `docs/SECURITY.md`
+- live dashboard: `scripts/rti_dashboard.py`
+- node firmware for 6 ESP32 families: `firmware/esp32_rti_node/`
+
+**Test it with no hardware:** `scripts/rti_fake_nodes.py` runs a virtual mesh
+over the real UDP protocol, with node-failure injection.
+
+**Steps**
+
+1. Read `docs/GOING_3D.md` - why power and carrier frequency are the wrong
+   knobs, and how many nodes you actually need.
+2. Run the design study for your room: `scripts/rti_sim.py --room X Y Z`.
+3. Buy the nodes. Any WiFi-capable ESP32; not H2 or P4.
+4. Follow `docs/GETTING_STARTED.md` to flash and place them.
+5. Calibrate with the room empty, then measure.
 
 **Deliverable.** Localisation error vs node count and link noise, measured in
-your actual room against the simulated prediction.
+your actual room against the simulated prediction. That comparison - simulation
+vs a real room with walls and furniture - is the actual research contribution
+here, and nobody can do it for you.
 
 ---
 
 ## Phase 4 - Passive radar / true "object detection" (optional, hard)
+
+> **Status: not started, and not recommended before Phases 1-3.**
 
 Only if you have a real reason. Two receive chains via SDR (reference channel
 pointed at the router, surveillance channel pointed at the scene), cross-ambiguity

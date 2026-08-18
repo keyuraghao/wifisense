@@ -20,8 +20,16 @@
  * callback signature (esp_now_recv_info_t) does not exist in core 2.x; on 2.x
  * you would have to run promiscuous mode and correlate frames by hand.
  *
- * NOT YET TESTED ON HARDWARE. The protocol side is verified against the Python
- * server by scripts/rti_fake_nodes.py, but this sketch has never been flashed.
+ * ESP32-H2 and ESP32-P4 cannot run this at all: they have no WiFi radio.
+ *
+ * STATUS: builds for ESP32, S2, S3, C3, C5 and C6; flashed and run on an
+ * ESP32-S3. Boot, HKDF key derivation, NVS-persisted boot_id and the heartbeat
+ * are confirmed on hardware. Multi-node ESP-NOW behaviour is still untested -
+ * that needs more than one board.
+ *
+ * This sketch is model-independent. Do not add per-board #ifdefs: the LED is
+ * resolved from RGB_BUILTIN / LED_BUILTIN, and everything else is common across
+ * families. scripts/build_firmware.py builds it for all of them.
  */
 
 #include <WiFi.h>

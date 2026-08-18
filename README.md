@@ -1,112 +1,155 @@
-# WiFi RF sensing - detecting motion and objects with an ordinary router
+# WiFi RF sensing - detecting motion and objects with radio
 
-Research scaffold for device-free sensing using the RF your existing WiFi router
-already transmits. No router modification, no extra transmitter.
+Research scaffold for device-free sensing: detecting people and motion using the
+RF that ordinary WiFi hardware already transmits. No router modification.
 
-**Have ESP32 hardware in hand?** [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md)
-- toolchain, flashing, placement, first run.
+Two tracks, sharing one signal-processing and modelling pipeline:
 
-**Start here:** [`docs/RESEARCH_PATHWAY.md`](docs/RESEARCH_PATHWAY.md) - the
-staged plan from "nothing" to "defensible result".
-Then [`docs/HARDWARE.md`](docs/HARDWARE.md) - what your radio can and cannot do.
-For 3D: [`docs/GOING_3D.md`](docs/GOING_3D.md) - why power and carrier frequency
-are the wrong knobs, and what to do instead.
-For the mesh: [`docs/MESH.md`](docs/MESH.md) - adding ESP32 nodes, and how the
-reconstruction survives node failure.
-Security: [`docs/SECURITY.md`](docs/SECURITY.md) - threat model, AES-128-GCM
-transport, and what crypto cannot protect.
+| Track | Hardware | Gives you |
+|---|---|---|
+| **A. Single link** | this laptop + your router | presence, motion, coarse activity |
+| **B. Node mesh** | ~12 ESP32s | 3D position, live, fault tolerant |
+
+**New here?** Read [`docs/RESEARCH_PATHWAY.md`](docs/RESEARCH_PATHWAY.md) first -
+it is the staged plan from nothing to a defensible result, and it explains why
+the tracks are ordered this way.
 
 ---
 
-## Where this machine stands
+## Status
 
-`scripts/check_hw.py` reports it live. Today:
+| Component | State |
+|---|---|
+| RSSI capture, features, models | works; validated end to end |
+| Real capture on this laptop's MT7921 | **confirmed**, 82,886 frames at 1041 Hz |
+| Live dashboard and session replay | works |
+| 3D tomography maths, node-failure recovery | validated in simulation |
+| Mesh protocol, registry, encryption | works; attack-tested |
+| Node firmware | **builds for 6 ESP32 families; flashed and run on an ESP32-S3** |
+| Multi-node mesh on real hardware | **not tested** - needs more than one board |
+| Localisation accuracy in a real room | **not measured** - simulation only |
 
-- **MT7921 (mt7921e), monitor mode: yes, CSI: no.**
-  You can do per-frame **RSSI** sensing right now - presence, motion, coarse
-  activity. Fine activity, gesture, and respiration need **CSI**, which this
-  chipset does not export. The fix is a ~$10 ESP32, not a driver rewrite.
-
-The code is built so the CSI upgrade costs you nothing: `csi_to_motion_series()`
-reduces a CSI subcarrier matrix to a scalar series that feeds the *same*
-preprocessing, features, and models as RSSI.
+Simulated numbers are an upper bound. The forward model has no walls or
+furniture, so expect real RTI at 0.3-0.5 m, matching the published literature.
 
 ---
 
-## Quick start
+## Track A: single-link RSSI sensing
+
+Works today on this laptop. Your MT7921 has **monitor mode but no CSI**, so the
+measurement is one integer dBm per frame. That is enough for presence and gross
+motion, and it will fail on a seated breathing person. See
+[`docs/HARDWARE.md`](docs/HARDWARE.md).
 
 ```bash
 source .venv/bin/activate
 
-# 0. Validate the whole pipeline with synthetic data - no radio needed
-python scripts/selftest.py
+python scripts/selftest.py          # validate the pipeline, no radio needed
+python scripts/check_hw.py          # what can this radio actually do?
 
-# 1. What can this radio do?
-python scripts/check_hw.py
-
-# 2. Record. Interleave classes; repeat the block on a second day.
+# record. Interleave classes; repeat the whole block on a second day.
 sudo .venv/bin/python scripts/collect.py --label empty   --seconds 120
 sudo .venv/bin/python scripts/collect.py --label walking --seconds 120
 sudo .venv/bin/python scripts/collect.py --label sitting --seconds 120
 
-# 3. Look at every recording before trusting it
-python scripts/plot_session.py data/sessions/walking__20260818-011500
-
-# 4. Features -> evaluation
+python scripts/plot_session.py data/sessions/walking__<timestamp>  # look before trusting
 python scripts/build_dataset.py
 python scripts/train.py
+```
 
-# 5. Live
-sudo .venv/bin/python scripts/live_detect.py --calibrate 30 --model models/rf.joblib
+`sudo` is needed for the monitor vif and the raw socket. Use the venv
+interpreter explicitly under sudo, as shown, or you get the system python.
+
+### Watching it live
+
+Capture needs root, the GUI does not, so they are separate processes.
+
+```bash
+sudo .venv/bin/python scripts/stream.py                              # terminal 1
+python scripts/live_view.py --follow data/live/stream.csv            # terminal 2
+```
+
+Four panels: raw RSSI, bandpassed motion, a rolling 0-40 Hz waterfall, and
+energy against the calibrated threshold. Spend the first 15 s out of the room -
+that is the calibration window.
+
+No radio and no root? Replay a recording through the identical display and
+detection code:
+
+```bash
+python scripts/live_view.py --replay data/sessions/walking__20260818-011500
 ```
 
 ---
 
-## Watching it in real time
+## Track B: 3D mesh
 
-Capture needs root; the GUI does not. They are separate processes so the display
-never runs as root, and so you can watch a session live *while* it records.
+One link gives one number per packet, so 3D from it is a rank deficiency, not an
+engineering shortfall. The fix is spatial diversity: ~12 nodes around the room at
+**staggered heights**, inverted into a voxel field (radio tomography).
+
+Try the whole stack with no hardware:
 
 ```bash
-# Terminal 1 (root) -- continuous capture to a tailable CSV
-sudo .venv/bin/python scripts/stream.py
-
-# Terminal 2 (you) -- live dashboard
-.venv/bin/python scripts/live_view.py --follow data/live/stream.csv
+python scripts/rti_dashboard.py                                       # terminal 1
+python scripts/rti_fake_nodes.py --nodes 12 --fail-after 28 --fail-count 4 \
+                                 --revive-after 12                    # terminal 2
 ```
 
-Four panels update ~5x/s:
+The virtual nodes speak the real protocol over a real UDP socket, so enrolment,
+liveness, baselines, encryption and topology rebuilds are all genuinely
+exercised. Only the radio is simulated.
 
-| Panel | Shows |
+With real ESP32s, follow [`docs/GETTING_STARTED.md`](docs/GETTING_STARTED.md):
+
+```bash
+python scripts/gen_mesh_key.py                        # once, before flashing
+python scripts/setup_firmware.py --ssid ... --password ...
+python scripts/build_firmware.py                      # builds all families
+python scripts/flash_node.py --monitor                # plug in ANY ESP32
+```
+
+The firmware is **model-independent**: one sketch, built for ESP32, S2, S3, C3,
+C5 and C6, and the flasher detects which you plugged in. ESP32-H2 and ESP32-P4
+have no WiFi radio and cannot be nodes.
+
+### Design study before you buy
+
+```bash
+python scripts/rf_resolution.py    # what power/frequency/bandwidth actually buy
+python scripts/rti_sim.py          # how many nodes, placed where
+```
+
+---
+
+## Three things that decide whether your results mean anything
+
+1. **Generate traffic.** An idle AP beacons at ~9.8 Hz, which Nyquist-limits you
+   to ~4.9 Hz of observable motion, while human limb motion goes to ~30 Hz. Aim
+   for >200 Hz capture. `capture/traffic.py` does this.
+2. **Group by session in cross-validation.** Sliding windows overlap; a random
+   split reports ~99% and means nothing. `train.py` enforces `GroupKFold`.
+3. **Beat the unsupervised baseline.** `train.py` reports a calibrated energy
+   threshold alongside the model. If the forest does not clearly beat it, the
+   forest learned your recording schedule, not the physics.
+
+A fourth, for the mesh: **stagger node heights.** Coplanar nodes return the same
+z every single time, pinned to the node plane. The z estimate looks plausible
+and carries no information.
+
+---
+
+## Documentation
+
+| Doc | Covers |
 |---|---|
-| RSSI (dBm) | what the radio actually reports, 1 dB quantised |
-| motion (dB) | bandpassed 0.3-40 Hz - drift removed, this is what detection sees |
-| waterfall | rolling 0-40 Hz spectrum; walking lights up 1-5 Hz |
-| energy | windowed energy vs the calibrated threshold, with the decision |
-
-The banner turns **orange** while calibrating, **green** for idle, **red** for
-MOTION, and shows peak frequency, capture rate, and the predicted class if you
-pass `--model models/rf.joblib`.
-
-Spend the first 15 s out of the room - that is the calibration window
-(`--calibrate 0` to skip, `--history 40` for a longer view).
-
-**No radio, no root - replay a recording at wall-clock speed:**
-
-```bash
-.venv/bin/python scripts/live_view.py --replay data/sessions/walking__20260818-011500
-```
-
-This runs the identical display and detection code, so it is the right way to
-demo the system, and to debug the live path without fighting the radio.
-`--speed 4` to fast-forward.
-
-**Over SSH / no display:** `--backend WebAgg` serves the dashboard to a browser,
-or `--headless 30 --save frame.png` runs blind and writes one frame.
-`scripts/live_detect.py` is the plain single-line terminal readout.
-
-`sudo` is needed for the monitor vif and the raw socket. Use the venv
-interpreter explicitly under sudo, as shown, or you will get the system python.
+| [RESEARCH_PATHWAY](docs/RESEARCH_PATHWAY.md) | the staged plan, evaluation protocol, reading list, ethics |
+| [HARDWARE](docs/HARDWARE.md) | what your radio can do, what to buy next |
+| [GOING_3D](docs/GOING_3D.md) | why power and carrier frequency are the wrong knobs |
+| [MESH](docs/MESH.md) | mesh architecture, adding nodes, surviving failures |
+| [SECURITY](docs/SECURITY.md) | threat model, AES-128-GCM transport, what crypto cannot do |
+| [GETTING_STARTED](docs/GETTING_STARTED.md) | ESP32 toolchain, flashing, placement, first run |
+| [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) | symptoms and fixes for Track A |
 
 ---
 
@@ -116,86 +159,54 @@ interpreter explicitly under sudo, as shown, or you will get the system python.
 wifisense/
   hw.py                      radio/interface control, monitor vif lifecycle
   capture/
-    monitor_rssi.py          per-frame RSSI from monitor mode  (Phase 1)
-    traffic.py               ICMP illuminator - beacons alone are only ~10 Hz
-    esp32_csi.py             ESP32 CSI reader + PCA reduction   (Phase 2)
+    monitor_rssi.py          per-frame RSSI from monitor mode
+    traffic.py               ICMP illuminator; beacons alone are only ~10 Hz
+    esp32_csi.py             ESP32 CSI reader + PCA reduction
   signal/
     preprocess.py            resample, hampel, bandpass, drift removal
     features.py              27 windowed time/spectral features
   models/
-    detector.py              unsupervised energy threshold - the honest baseline
+    detector.py              unsupervised energy threshold, the honest baseline
     classify.py              RandomForest + session-grouped CV
   pipeline/
     dataset.py               sessions -> labelled feature table
     stream.py                CSV tailer, ring buffer, session replayer
-  spatial/                   3D reconstruction  (Phase 3)
+  spatial/
     physics.py               resolution limits: power, bandwidth, aperture
     geometry.py              voxel grids, node layouts
     rti.py                   radio tomography: links -> 3D voxel field
     simulate.py              forward model for validating reconstruction
     adaptive.py              rebuilds the inverse when nodes fail or rejoin
-  mesh/                      ESP32 mesh  (Phase 3b)
+  mesh/
     crypto.py                AES-128-GCM, HKDF per-node keys, replay window
     protocol.py              UDP wire format
     registry.py              auto-enrolment, liveness, per-link baselines
     server.py                collector thread + live reconstruction session
 
 scripts/
-  check_hw.py  collect.py  plot_session.py  selftest.py
-  build_dataset.py  train.py
-  stream.py                  continuous capture   (root)
-  live_view.py               real-time dashboard  (no root)
-  live_detect.py             terminal one-liner   (root)
-  rf_resolution.py           what power/frequency/bandwidth actually buy
+  selftest.py                validate the whole Track A pipeline, no radio
+  check_hw.py                what this radio supports
+  collect.py                 record a labelled session          (root)
+  plot_session.py            inspect a recording before using it
+  build_dataset.py           sessions -> features
+  train.py                   evaluate against baseline and chance
+  stream.py                  continuous capture                 (root)
+  live_view.py               real-time dashboard                (no root)
+  live_detect.py             terminal one-liner                 (root)
+  rf_resolution.py           what power/frequency/bandwidth buy you
   rti_sim.py                 3D tomography design study
   rti_dashboard.py           live mesh dashboard + reconstruction
   rti_fake_nodes.py          virtual ESP32 mesh, with failure injection
-  gen_mesh_key.py            generate the mesh master key (run once)
-  setup_firmware.py          generate firmware config.h (WiFi, server IP)
-  build_firmware.py          build for every ESP32 family, with a manifest
+  gen_mesh_key.py            generate the mesh master key       (once)
+  setup_firmware.py          generate firmware config.h
+  build_firmware.py          build for every ESP32 family
   flash_node.py              detect the plugged-in chip and flash it
 
 firmware/
   esp32_rti_node/            one sketch, model-independent
   build/                     per-family binaries + manifest.json (generated)
-
-docs/
-  RESEARCH_PATHWAY.md  HARDWARE.md  TROUBLESHOOTING.md
 ```
 
----
-
-## Three things that decide whether your results mean anything
-
-1. **Generate traffic.** An idle AP beacons at ~9.8 Hz, which Nyquist-limits you
-   to ~4.9 Hz of observable motion. Human limb motion goes to ~30 Hz. Aim for
-   >200 Hz capture.
-2. **Group by session in cross-validation.** Sliding windows overlap; a random
-   split reports ~99% and means nothing. `train.py` enforces `GroupKFold`.
-3. **Beat the unsupervised baseline.** `train.py` reports a calibrated energy
-   threshold alongside the model. If the forest does not clearly beat it, the
-   forest learned your recording schedule, not the physics.
-
-Expect RSSI to nail presence and gross motion, and to fail on a seated breathing
-person. That failure is the information limit of one scalar per frame - and it
-is the measurement that justifies Phase 2.
-
----
-
-## Thinking about 3D?
-
-```bash
-.venv/bin/python scripts/rf_resolution.py   # the physics, with numbers
-.venv/bin/python scripts/rti_sim.py         # the 3D design study
-```
-
-Short answer: **more transmit power buys 0.000 dB** - your floor is the 1 dB
-RSSI quantiser, not thermal noise, and you are already 45 dB above the noise.
-A higher carrier helps micro-motion only. Range resolution is bandwidth
-(ΔR = c/2B; at your 80 MHz that is 1.9 m, worse than the room) and angle is
-antenna count (1.77/N rad - 3 antennas is 34°).
-
-And one link gives one number per packet, so 3D from it is a rank deficiency,
-not an engineering shortfall. The fix is spatial diversity: ~12 ESP32s around
-the room at **staggered heights** → radio tomography. See
-[`docs/GOING_3D.md`](docs/GOING_3D.md).
+Generated and secret files are gitignored: `config/mesh.key`,
+`firmware/esp32_rti_node/{config.h,mesh_key.h}`, `firmware/build/`,
+`data/`, `models/*.joblib`.

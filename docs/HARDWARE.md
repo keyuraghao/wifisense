@@ -41,13 +41,17 @@ practice.
 
 ## Recommended purchases, in order of value per dollar
 
-1. **ESP32-WROOM-32 or ESP32-S3 dev board** (~$5-10, get 2-3).
-   Firmware: Espressif's `esp-csi` examples, or the ESP32 CSI Toolkit
-   (Hernandez & Bulut). Gives 52 usable subcarriers at up to ~100 Hz over USB
-   serial. `wifisense/capture/esp32_csi.py` already parses its output.
-   *This is the correct next purchase.* Two boards let you run a dedicated
-   transmitter and receiver, which removes the traffic-generation problem
-   entirely and gives you a reproducible link.
+1. **ESP32 dev boards** (~$5-10 each). **Owned: 1x ESP32-S3.**
+   Two distinct uses, and they need different firmware:
+   - **CSI capture** (Phase 2): Espressif's `esp-csi`, or the ESP32 CSI Toolkit
+     (Hernandez & Bulut). 52 usable subcarriers at up to ~100 Hz over USB
+     serial; `wifisense/capture/esp32_csi.py` parses its output. Two boards give
+     you a dedicated transmitter and receiver, which removes the
+     traffic-generation problem and fixes the link geometry.
+   - **3D mesh nodes** (Phase 3b): this project's own firmware, in
+     `firmware/esp32_rti_node/`. Any WiFi-capable family works - ESP32, S2, S3,
+     C3, C5, C6. **Not H2 or P4: those have no WiFi radio at all.** About 12
+     nodes for a room. See `docs/GETTING_STARTED.md`.
 
 2. **Raspberry Pi 4 or 3B+** (~$35-60) with **Nexmon CSI**.
    Broadcom bcm43455c0, 802.11ac, up to 80 MHz -> 234 subcarriers, and it can

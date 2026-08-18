@@ -1,5 +1,10 @@
 # Troubleshooting
 
+Covers **Track A**: single-link RSSI capture on this laptop.
+
+For the ESP32 mesh (nodes not appearing, flashing, auth failures) see
+[GETTING_STARTED](GETTING_STARTED.md#troubleshooting) and [MESH](MESH.md).
+
 ## `collect.py` captures 0 frames
 
 Most likely: the driver refused to run a monitor vif alongside the associated

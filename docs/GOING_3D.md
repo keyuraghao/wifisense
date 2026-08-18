@@ -74,7 +74,7 @@ shortfall. No power level and no carrier fixes it.
 
 ## Two honest routes to 3D
 
-### (a) Many cheap nodes → radio tomography  ← recommended
+### (a) Many cheap nodes -> radio tomography  (recommended)
 
 Surround the room with ~12 ESP32s. N nodes give N(N−1)/2 links, and inverting
 the shadowing pattern gives a 3D voxel field (Wilson & Patwari, RTI, IEEE TMC
@@ -149,9 +149,14 @@ Treat the simulated figures as an upper bound on what you will measure.
 
 | Item | Qty | ~Cost |
 |---|---|---|
-| ESP32-WROOM-32 dev board | 12 | $60 |
+| ESP32 dev board, any WiFi-capable family | 12 | $60 |
 | USB power supplies / battery packs | 12 | varies |
 | Tape measure, for node positions | 1 | - |
+
+Buy whatever is cheapest: ESP32, S2, S3, C3, C5 and C6 all run the same
+firmware, and `scripts/flash_node.py` detects which you plugged in. **Avoid
+ESP32-H2 and ESP32-P4** - they have no WiFi radio and cannot be mesh nodes.
+Mixing families in one mesh is fine.
 
 Node position error goes straight into localisation error - the simulation
 assumes 5 cm placement jitter. Measure carefully; do not eyeball it.

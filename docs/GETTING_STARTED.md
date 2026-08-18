@@ -69,7 +69,8 @@ ls /dev/ttyACM* /dev/ttyUSB*
 - `/dev/ttyACM*` means **native USB** (S3, C3, C6, S2)
 - `/dev/ttyUSB*` means an **external bridge** (CP210x / CH340), i.e. classic ESP32
 
-The chip decides the FQBN. `scripts/flash_node.sh` detects this for you.
+You do not need to act on this. `scripts/flash_node.py` detects the chip and
+picks the right firmware; the port name is only a hint about which family.
 
 You do not need to know the FQBN - `flash_node.py` resolves it. For reference,
 `CDCOnBoot=cdc` is applied to native-USB parts; without it `Serial` goes to the
@@ -89,7 +90,7 @@ shares this key. Neither file is committed. See `docs/SECURITY.md`.
 
 ```bash
 .venv/bin/python scripts/setup_firmware.py \
-  --ssid 'YOUR_2.4GHz_SSID' --password 'YOUR_PASSWORD' --led-pin -1
+  --ssid 'YOUR_2.4GHz_SSID' --password 'YOUR_PASSWORD'
 ```
 
 Three things to get right:
