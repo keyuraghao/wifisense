@@ -1,0 +1,10 @@
+numpy>=2.0
+scipy>=1.14
+pandas>=2.2
+scikit-learn>=1.5
+matplotlib>=3.9
+scapy>=2.6
+pyarrow>=17
+pyserial>=3.5
+joblib>=1.4
+rich>=13

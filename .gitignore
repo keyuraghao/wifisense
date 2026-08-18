@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Recorded data and derived artefacts. Sessions are large and machine-specific;
+# keep them out of git and archive them separately with their meta.json.
+data/sessions/
+data/sessions_synthetic/
+data/datasets/
+data/raw/
+models/*.joblib
+*.png
+data/live/
