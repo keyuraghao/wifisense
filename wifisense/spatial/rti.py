@@ -88,6 +88,10 @@ class RTIReconstructor:
     # estimate_noise_var() on empty-room data rather than guessing.
     noise_var: float = 2.25
     prior_var: float = 1.0
+    # The N x N spatial prior depends only on the grid, never on which links are
+    # up. Passing it in lets a live mesh rebuild the inverse on every topology
+    # change while paying the expensive part exactly once. See spatial/adaptive.py.
+    prior_cov: np.ndarray | None = None
 
     W: np.ndarray = field(init=False, repr=False)
     Pi: np.ndarray = field(init=False, repr=False)
@@ -95,7 +99,8 @@ class RTIReconstructor:
     def __post_init__(self) -> None:
         self.W = ellipse_weights(self.nodes, self.pairs, self.grid,
                                  ellipse_m=self.ellipse_m)
-        C = spatial_prior(self.grid, self.corr_len_m, self.prior_var)
+        C = (self.prior_cov if self.prior_cov is not None
+             else spatial_prior(self.grid, self.corr_len_m, self.prior_var))
 
         # Dual (kernel) form: Pi = C W^T (W C W^T + sigma^2 I)^-1, an M x M solve.
         CWt = C @ self.W.T                                   # (N,M)
