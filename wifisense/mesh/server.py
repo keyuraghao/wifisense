@@ -15,6 +15,7 @@ import numpy as np
 
 from ..spatial.adaptive import AdaptiveReconstructor
 from ..spatial.geometry import VoxelGrid
+from .crypto import KeyStore, ReplayWindow, SecurityError, open_report
 from .protocol import DEFAULT_PORT, MAX_DATAGRAM, ProtocolError, decode
 from .registry import MeshRegistry
 
@@ -24,7 +25,10 @@ class CollectorStats:
     datagrams: int = 0
     bytes_rx: int = 0
     errors: int = 0
+    auth_failures: int = 0
+    replays: int = 0
     last_error: str = ""
+    last_security_event: str = ""
     started: float = field(default_factory=time.time)
     _recent: list = field(default_factory=list, repr=False)
 
@@ -45,9 +49,17 @@ class MeshCollector:
     """Receives node reports on a UDP port and files them in the registry."""
 
     def __init__(self, registry: MeshRegistry, host: str = "0.0.0.0",
-                 port: int = DEFAULT_PORT):
+                 port: int = DEFAULT_PORT, keys: KeyStore | None = None,
+                 allow_unauthenticated: bool = False):
         self.registry = registry
         self.host, self.port = host, port
+        # keys=None + allow_unauthenticated=False means nothing is accepted.
+        # Failing closed is deliberate: a mesh that silently falls back to
+        # plaintext when the key file is missing is worse than one that stops,
+        # because nobody notices until the data is already poisoned.
+        self.keys = keys
+        self.allow_unauthenticated = allow_unauthenticated
+        self.replay = ReplayWindow()
         self.stats = CollectorStats()
         self._sock: socket.socket | None = None
         self._thread: threading.Thread | None = None
@@ -81,13 +93,33 @@ class MeshCollector:
             self.stats.bytes_rx += len(payload)
             self.stats.note(now)
             try:
-                self.registry.ingest(decode(payload), now=now)
+                self.registry.ingest(self._authenticate(payload), now=now)
+            except SecurityError as e:
+                # Counted separately and never logged per packet: a flood of
+                # forgeries must not turn into a log-volume denial of service.
+                msg = str(e)
+                if "replay" in msg:
+                    self.stats.replays += 1
+                else:
+                    self.stats.auth_failures += 1
+                self.stats.last_security_event = msg
             except ProtocolError as e:
                 self.stats.errors += 1
                 self.stats.last_error = str(e)
             except Exception as e:                      # a bad node must not
                 self.stats.errors += 1                  # take down the mesh
                 self.stats.last_error = f"{type(e).__name__}: {e}"
+
+    def _authenticate(self, payload: bytes):
+        """Verify and decrypt, or pass through only if explicitly allowed."""
+        if self.keys is not None:
+            _node, _boot, _seq, plaintext = open_report(self.keys, payload,
+                                                        self.replay)
+            return decode(plaintext)
+        if not self.allow_unauthenticated:
+            raise SecurityError("no key configured and unauthenticated frames "
+                                "are not allowed")
+        return decode(payload)
 
     def stop(self) -> None:
         self._stop.set()
@@ -108,10 +140,14 @@ class MeshSession:
 
     def __init__(self, grid: VoxelGrid, positions_path="config/nodes.json",
                  port: int = DEFAULT_PORT, min_links: int = 10,
-                 node_timeout: float = 5.0, link_timeout: float = 5.0):
+                 node_timeout: float = 5.0, link_timeout: float = 5.0,
+                 keys: KeyStore | None = None,
+                 allow_unauthenticated: bool = False):
         self.grid = grid
         self.registry = MeshRegistry(positions_path)
-        self.collector = MeshCollector(self.registry, port=port)
+        self.collector = MeshCollector(self.registry, port=port, keys=keys,
+                                       allow_unauthenticated=allow_unauthenticated)
+        self.secure = keys is not None
         self.adaptive = AdaptiveReconstructor(grid, min_links=min_links)
         self.node_timeout = node_timeout
         self.link_timeout = link_timeout
@@ -162,7 +198,8 @@ class MeshSession:
         state = {"snapshot": snap, "recon": recon,
                  "collector": self.collector.stats,
                  "adaptive": self.adaptive.stats,
-                 "noise_var": self.noise_var, "calibrated": self.calibrated}
+                 "noise_var": self.noise_var, "calibrated": self.calibrated,
+                 "secure": self.secure}
 
         self.history.append({
             "t": snap["now"], "n_alive": snap["n_alive"],

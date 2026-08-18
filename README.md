@@ -10,6 +10,8 @@ For 3D: [`docs/GOING_3D.md`](docs/GOING_3D.md) - why power and carrier frequency
 are the wrong knobs, and what to do instead.
 For the mesh: [`docs/MESH.md`](docs/MESH.md) - adding ESP32 nodes, and how the
 reconstruction survives node failure.
+Security: [`docs/SECURITY.md`](docs/SECURITY.md) - threat model, AES-128-GCM
+transport, and what crypto cannot protect.
 
 ---
 
@@ -130,6 +132,7 @@ wifisense/
     simulate.py              forward model for validating reconstruction
     adaptive.py              rebuilds the inverse when nodes fail or rejoin
   mesh/                      ESP32 mesh  (Phase 3b)
+    crypto.py                AES-128-GCM, HKDF per-node keys, replay window
     protocol.py              UDP wire format
     registry.py              auto-enrolment, liveness, per-link baselines
     server.py                collector thread + live reconstruction session
@@ -144,6 +147,7 @@ scripts/
   rti_sim.py                 3D tomography design study
   rti_dashboard.py           live mesh dashboard + reconstruction
   rti_fake_nodes.py          virtual ESP32 mesh, with failure injection
+  gen_mesh_key.py            generate the mesh master key (run once)
 
 firmware/
   esp32_rti_node/            one sketch, flashed unchanged to every node

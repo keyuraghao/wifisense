@@ -36,6 +36,9 @@ deliver stale measurements.
 
 ## Adding a node
 
+Run `scripts/gen_mesh_key.py` once before flashing anything - it generates the
+mesh key that every node shares. See `docs/SECURITY.md`.
+
 Three steps, and the same binary goes on every node:
 
 1. Flash `firmware/esp32_rti_node/esp32_rti_node.ino` (set SSID, password,

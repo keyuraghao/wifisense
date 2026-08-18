@@ -26,6 +26,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from wifisense.mesh.crypto import KeyStore, seal_report
 from wifisense.mesh.protocol import DEFAULT_PORT, Measurement, Report, pretty_id
 from wifisense.spatial.geometry import link_pairs, perimeter_nodes
 from wifisense.spatial.simulate import simulate_links
@@ -60,7 +61,21 @@ def main() -> int:
     ap.add_argument("--fading", type=float, default=1.2, help="link noise, dB")
     ap.add_argument("--write-config", default="config/nodes.json")
     ap.add_argument("--seconds", type=float, default=0.0, help="0 = forever")
+    ap.add_argument("--key-file", default="config/mesh.key")
+    ap.add_argument("--insecure", action="store_true",
+                    help="send unauthenticated frames (to test that the server "
+                         "rejects them)")
+    ap.add_argument("--boot-id", type=int, default=1)
     args = ap.parse_args()
+
+    keys = None
+    if not args.insecure:
+        try:
+            keys = KeyStore.from_file(args.key_file)
+        except FileNotFoundError:
+            print(f"no key at {args.key_file}; run scripts/gen_mesh_key.py",
+                  file=sys.stderr)
+            return 1
 
     room = ((0.0, args.room[0]), (0.0, args.room[1]), (0.0, args.room[2]))
     per_wall = max(1, args.nodes // 4)
@@ -78,6 +93,8 @@ def main() -> int:
         for i in range(len(ids))}}, indent=2))
 
     print(f"{len(ids)} virtual nodes -> {args.host}:{args.port} at {args.rate} Hz")
+    print("transport: " + ("AES-128-GCM authenticated" if keys
+                           else "INSECURE plaintext"))
     print(f"positions written to {cfg}")
     print(f"room {args.room}  |  {len(pairs)} links")
     print(f"warmup (empty room, calibrate now): {args.warmup:.0f}s")
@@ -145,8 +162,11 @@ def main() -> int:
                     rssi = base[(a, b)] - atten[k] + rng.normal(0, args.fading)
                     ms.append(Measurement(peer=ids[j], rssi_dbm=float(rssi),
                                           samples=int(args.rate)))
-                sock.sendto(Report(node=nid, seq=seq, uptime_ms=int(el * 1000),
-                                   measurements=ms).encode(), (args.host, args.port))
+                payload = Report(node=nid, seq=seq, uptime_ms=int(el * 1000),
+                                 measurements=ms).encode()
+                if keys is not None:
+                    payload = seal_report(keys, nid, args.boot_id, seq, payload)
+                sock.sendto(payload, (args.host, args.port))
 
             seq += 1
             live = len(ids) - len(dead)

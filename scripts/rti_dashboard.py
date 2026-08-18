@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import matplotlib
 
+from wifisense.mesh.crypto import KeyStore
 from wifisense.mesh.protocol import DEFAULT_PORT
 from wifisense.mesh.server import MeshSession
 from wifisense.spatial.geometry import VoxelGrid
@@ -49,7 +50,24 @@ def main() -> int:
     ap.add_argument("--backend", default="TkAgg")
     ap.add_argument("--headless", type=float, default=0.0)
     ap.add_argument("--save", default=None)
+    ap.add_argument("--key-file", default="config/mesh.key")
+    ap.add_argument("--insecure", action="store_true",
+                    help="accept unauthenticated frames (debugging only)")
     args = ap.parse_args()
+
+    keys = None
+    if not args.insecure:
+        try:
+            keys = KeyStore.from_file(args.key_file)
+        except FileNotFoundError:
+            print(f"error: no mesh key at {args.key_file}\n"
+                  f"run: .venv/bin/python scripts/gen_mesh_key.py\n"
+                  f"(or --insecure to accept unauthenticated frames)",
+                  file=sys.stderr)
+            return 1
+    else:
+        print("WARNING: running INSECURE. Any host that can reach this port can "
+              "inject fabricated measurements.", file=sys.stderr)
 
     matplotlib.use("Agg" if args.headless else args.backend)
     import matplotlib.pyplot as plt
@@ -58,10 +76,13 @@ def main() -> int:
     room = ((0.0, args.room[0]), (0.0, args.room[1]), (0.0, args.room[2]))
     grid = VoxelGrid(*room, voxel_m=args.voxel)
     sess = MeshSession(grid, positions_path=args.config, port=args.port,
-                       min_links=args.min_links, node_timeout=args.node_timeout)
+                       min_links=args.min_links, node_timeout=args.node_timeout,
+                       keys=keys, allow_unauthenticated=args.insecure)
     sess.start()
     print(f"listening on UDP :{args.port}   room {args.room}   "
           f"grid {grid.shape} = {grid.n_voxels} voxels")
+    print("transport: " + ("AES-128-GCM, replay protected"
+                           if keys else "INSECURE - unauthenticated"))
     print(f"node positions from {args.config}")
 
     state = {"phase": "waiting", "cal_end": 0.0, "cal_result": None}
@@ -186,6 +207,10 @@ def main() -> int:
             f"({snap['link_health']:.0%})   "
             f"datagrams {cs.datagrams} @ {cs.rate_hz():.0f}/s   "
             f"errors {cs.errors}   noise_var {st['noise_var']:.2f} dB^2",
+            ("security: AES-128-GCM   " if st["secure"] else "security: INSECURE   ")
+            + f"auth failures {cs.auth_failures}   replays rejected {cs.replays}"
+            + (f"   last: {cs.last_security_event[:60]}"
+               if cs.last_security_event else ""),
             f"topology rebuilds {ad['rebuilds']}  cache hits {ad['cache_hits']} "
             f"({ad['hit_rate']:.0%})  last rebuild {ad['last_rebuild_ms']:.1f} ms",
         ]
