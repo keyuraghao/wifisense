@@ -1,7 +1,40 @@
 # Getting started with real ESP32 hardware
 
-Verified on an **ESP32-S3** (QFN56 rev v0.1, 8 MB PSRAM, native USB-Serial/JTAG),
-arduino-esp32 core **3.3.11**, arduino-cli 1.5.1.
+The firmware is **not tied to any ESP32 model**. It is built for every WiFi
+capable family, and the flasher detects whatever you plug in and picks the right
+binary. Verified end to end on an **ESP32-S3**; built for six families.
+
+## Supported hardware
+
+```bash
+.venv/bin/python scripts/flash_node.py --list
+```
+
+| Family | Firmware | Bootloader offset | USB |
+|---|---|---|---|
+| ESP32 (classic) | 904 KB | 0x1000 | external bridge |
+| ESP32-S2 | 897 KB | 0x1000 | native |
+| ESP32-S3 | 884 KB | 0x0 | native |
+| ESP32-C3 | 976 KB | 0x0 | native |
+| ESP32-C6 | 999 KB | 0x0 | native |
+| ESP32-C5 | 1042 KB | 0x2000 | native |
+
+Note the bootloader offset varies three ways. Flashing to the wrong one leaves a
+board that will not boot, which is why the offset is read out of the Arduino
+core's `boards.txt` at build time rather than hardcoded.
+
+**Cannot be used, and no firmware change can help:**
+
+| Family | Why |
+|---|---|
+| ESP32-H2 | **No WiFi radio.** 802.15.4 and BLE only. `WiFi` does not even exist as a symbol. |
+| ESP32-P4 | **No WiFi radio.** Needs a companion WiFi chip; `esp_now_init` is undefined. |
+| ESP32-C2 | Espressif ships no `esp32c2-libs` package for the Arduino core. The source compiles; the SDK is simply absent. This one may become supported in a future core release. |
+
+Support is determined by **compiling**, not by a list someone maintains. New
+Espressif parts and core updates change what works, so `build_firmware.py` tries
+each family and records what happened - including the reason for each failure,
+so plugging in an H2 gives you an explanation rather than a mystery.
 
 ## 0. Toolchain (once)
 
@@ -38,13 +71,8 @@ ls /dev/ttyACM* /dev/ttyUSB*
 
 The chip decides the FQBN. `scripts/flash_node.sh` detects this for you.
 
-| Chip | FQBN |
-|---|---|
-| ESP32-S3 | `esp32:esp32:esp32s3:CDCOnBoot=cdc` |
-| ESP32-C3 | `esp32:esp32:esp32c3:CDCOnBoot=cdc` |
-| classic ESP32 | `esp32:esp32:esp32da` |
-
-`CDCOnBoot=cdc` matters on native-USB parts: without it `Serial` goes to the
+You do not need to know the FQBN - `flash_node.py` resolves it. For reference,
+`CDCOnBoot=cdc` is applied to native-USB parts; without it `Serial` goes to the
 UART pins and you see nothing over USB.
 
 ## 2. Generate the mesh key (once, before flashing anything)
@@ -70,15 +98,35 @@ Three things to get right:
   one. If your router band-steers under one SSID, that is fine.
 - **Server IP** defaults to this machine's address. Give it a **DHCP
   reservation** on your router, or the mesh breaks when the lease changes.
-- **`--led-pin -1`** on ESP32-S3 DevKits: they usually carry an addressable RGB
-  LED on GPIO48, which `digitalWrite` cannot drive. Classic ESP32 boards can use
-  `--led-pin 2`.
+- **Leave `--led-pin` alone.** The default (-1) resolves the heartbeat LED at
+  compile time from what the board declares: `RGB_BUILTIN` drives an addressable
+  LED with `neopixelWrite`, `LED_BUILTIN` drives a plain one, and a board with
+  neither simply has no heartbeat. That is what keeps one sketch working across
+  an S3 DevKit (RGB on GPIO48) and a classic DevKitC (plain LED on GPIO2).
+  Pass an explicit pin only to override, or -2 to disable.
 
-## 4. Flash
+## 4. Build the firmware for every family (once)
 
 ```bash
-./scripts/flash_node.sh -m        # auto-detects port and chip, -m to watch serial
+.venv/bin/python scripts/build_firmware.py
 ```
+
+About 80 s for all nine families. Output lands in `firmware/build/` with a
+`manifest.json` the flasher reads.
+
+## 5. Flash
+
+```bash
+.venv/bin/python scripts/flash_node.py --monitor
+```
+
+No board argument. It asks the chip what it is, looks up the matching binary,
+and flashes at that family's offsets. Plug in an S3, then a C3, then a classic
+ESP32 - same command every time.
+
+Flashing uses esptool against the prebuilt binaries, so a machine that only
+flashes needs neither arduino-cli nor the 5.6 GB toolchain. Copy
+`firmware/build/` to a laptop and it can flash nodes.
 
 One board at a time: plug in, flash, note the MAC it prints, unplug, **label the
 board with the last 4 hex digits**, next.
@@ -102,7 +150,7 @@ reporting to 192.168.1.187:9999
 node** - if one differs, that node was flashed with a stale `mesh_key.h` and the
 server will reject everything it sends.
 
-## 5. Place the nodes
+## 6. Place the nodes
 
 Positions go in `config/nodes.json`, keyed by MAC:
 
@@ -125,7 +173,7 @@ corrupts the geometry worse than a missing node does.
 - Spread them around the perimeter, not clustered on one wall.
 - Origin and axes are yours to choose; just be consistent.
 
-## 6. Run
+## 7. Run
 
 ```bash
 .venv/bin/python scripts/rti_dashboard.py --room 5 4 2.4
@@ -168,3 +216,18 @@ them all to `config/nodes.json`.
 You do not need all 12 before testing. The reconstruction runs on whatever is
 alive above `--min-links` (default 10, i.e. 5 nodes), and degrades gracefully.
 Start with 5-6 and add more.
+
+**"could not identify the chip".** The board is not in download mode. Most
+boards handle this automatically; some need BOOT held while tapping RESET, then
+release BOOT. A few cheap clones need a 10 uF capacitor across EN and GND.
+
+**Plugged in an H2 or P4 and it refuses.** Correct behaviour: those chips have
+no WiFi radio, so they cannot measure RSSI or run ESP-NOW. `flash_node.py`
+refuses with that reason rather than flashing something that would never work.
+
+**Mixing board models in one mesh.** Fully supported and expected. A classic
+ESP32, an S3 and a C3 in the same room all run the same protocol and derive keys
+the same way. Only the binary differs, and the flasher picks it. There is one
+caveat: RSSI calibration differs slightly between chip families, so mixing
+models adds a little per-link bias. The empty-room baseline absorbs it, since
+RTI measures change rather than absolute level.

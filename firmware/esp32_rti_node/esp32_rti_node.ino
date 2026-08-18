@@ -49,7 +49,15 @@ static const uint32_t BEACON_INTERVAL_MS = CFG_BEACON_INTERVAL_MS;
 static const uint32_t REPORT_INTERVAL_MS = CFG_REPORT_INTERVAL_MS;
 static const uint32_t PEER_STALE_MS = CFG_PEER_STALE_MS;
 
-#define LED_PIN CFG_LED_PIN
+// Resolve the heartbeat LED at compile time from what this board actually
+// declares. Nothing here is model-specific.
+#if CFG_LED_PIN >= 0
+  #define HB_GPIO CFG_LED_PIN
+#elif CFG_LED_PIN == -1 && defined(RGB_BUILTIN)
+  #define HB_RGB RGB_BUILTIN
+#elif CFG_LED_PIN == -1 && defined(LED_BUILTIN)
+  #define HB_GPIO LED_BUILTIN
+#endif
 
 // ------------------------------------------------------------- security ---
 // Constants and the PeerStat type live in rti_types.h.
@@ -93,6 +101,20 @@ static uint32_t beaconSeq = 0, reportSeq = 0;
 static uint32_t lastBeacon = 0, lastReport = 0;
 static char selfId[13];
 static const uint8_t BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+static void heartbeatLed() {
+  static bool on = false;
+  on = !on;
+#if defined(HB_RGB)
+  // Dim on purpose: a dozen nodes with bright LEDs in a room is unpleasant, and
+  // brightness costs current on battery-powered nodes.
+  neopixelWrite(HB_RGB, on ? 4 : 0, on ? 2 : 0, 0);
+#elif defined(HB_GPIO)
+  digitalWrite(HB_GPIO, on);
+#else
+  (void)on;   // board has no usable LED; not an error
+#endif
+}
 
 static void macToHex(const uint8_t *mac, char *out) {
   static const char *H = "0123456789abcdef";
@@ -235,7 +257,9 @@ static void sendReport() {
 
 void setup() {
   Serial.begin(115200);
-  if (LED_PIN >= 0) pinMode(LED_PIN, OUTPUT);
+#ifdef HB_GPIO
+  pinMode(HB_GPIO, OUTPUT);
+#endif
   esp_log_level_set("wifi", ESP_LOG_WARN);
   esp_log_level_set("ESPNOW", ESP_LOG_WARN);
   memset(peers, 0, sizeof(peers));
@@ -345,7 +369,7 @@ void loop() {
                     (unsigned long)(now / 1000), live, (unsigned long)reportSeq,
                     rej, ch, WiFi.status() == WL_CONNECTED ? "up" : "DOWN");
     }
-    if (LED_PIN >= 0) digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    heartbeatLed();
   }
 
   // Rejoin if the AP drops. Note what actually happens while unassociated: the

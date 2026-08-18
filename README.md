@@ -152,10 +152,12 @@ scripts/
   rti_fake_nodes.py          virtual ESP32 mesh, with failure injection
   gen_mesh_key.py            generate the mesh master key (run once)
   setup_firmware.py          generate firmware config.h (WiFi, server IP)
-  flash_node.sh              compile + flash one node, auto-detecting the chip
+  build_firmware.py          build for every ESP32 family, with a manifest
+  flash_node.py              detect the plugged-in chip and flash it
 
 firmware/
-  esp32_rti_node/            one sketch, flashed unchanged to every node
+  esp32_rti_node/            one sketch, model-independent
+  build/                     per-family binaries + manifest.json (generated)
 
 docs/
   RESEARCH_PATHWAY.md  HARDWARE.md  TROUBLESHOOTING.md

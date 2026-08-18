@@ -15,3 +15,4 @@ config/nodes.json
 config/mesh.key
 firmware/esp32_rti_node/mesh_key.h
 firmware/esp32_rti_node/config.h
+firmware/build/
