@@ -18,3 +18,6 @@ firmware/esp32_rti_node/config.h
 firmware/build/
 *.egg-info/
 build/
+
+# Compiled ESP32 build output (artifacts, not source)
+firmware/esp32_rti_node/build/
